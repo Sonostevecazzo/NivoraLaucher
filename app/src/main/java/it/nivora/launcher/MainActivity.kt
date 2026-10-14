@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -64,6 +66,11 @@ private fun NivoraApp() {
     var grid by remember { mutableStateOf(prefs.getBoolean("grid", true)) }
     var showLabels by remember { mutableStateOf(prefs.getBoolean("labels", true)) }
     var compact by remember { mutableStateOf(prefs.getBoolean("compact", false)) }
+    var columns by remember { mutableIntStateOf(prefs.getInt("columns", 4).coerceIn(3, 5)) }
+    var iconSize by remember { mutableIntStateOf(prefs.getInt("iconSize", 50).coerceIn(40, 64)) }
+    var fontChoice by remember { mutableStateOf(prefs.getString("fontChoice", "System") ?: "System") }
+    var wallpaper by remember { mutableStateOf(prefs.getString("wallpaper", "OLED") ?: "OLED") }
+    var accentChoice by remember { mutableStateOf(prefs.getString("accentChoice", "Red") ?: "Red") }
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
@@ -91,16 +98,27 @@ private fun NivoraApp() {
 
     val visibleApps = apps.filter { it.label.contains(query.trim(), true) }
         .sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
-    val bg = if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
-    val fg = if (dark) Color(0xFFF4F4F0) else Color(0xFF111212)
-    val muted = if (dark) Color(0xFF8A8D8B) else Color(0xFF707370)
-    val panel = if (dark) Color(0xFF171919) else Color(0xFFE7E8E3)
-    val accent = Color(0xFFD71920)
+    val bg = when (wallpaper) {
+        "Graphite" -> Color(0xFF202326)
+        "Warm" -> Color(0xFFF0E9DE)
+        "Paper" -> Color(0xFFF7F7F2)
+        else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
+    }
+    val fg = if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
+    val muted = if (fg == Color(0xFF111212)) Color(0xFF707370) else Color(0xFF8A8D8B)
+    val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF171919)
+    val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
+    val selectedFont = when (fontChoice) { "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; else -> FontFamily.SansSerif }
 
-    MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)
-        else lightColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)) {
+    MaterialTheme(colorScheme = if (fg != Color(0xFF111212)) darkColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)
+        else lightColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg), typography = Typography(defaultFontFamily = selectedFont)) {
         Surface(Modifier.fillMaxSize(), color = bg) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
+            val backdrop = when (wallpaper) {
+                "Gradient" -> Brush.verticalGradient(listOf(if (dark) Color(0xFF242833) else Color(0xFFE5E9F2), bg, if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)))
+                "Sunset" -> Brush.verticalGradient(listOf(Color(0xFF4B253F), Color(0xFF1A202C), Color(0xFF090A0A)))
+                else -> Brush.verticalGradient(listOf(bg, bg))
+            }
+            Column(Modifier.fillMaxSize().background(backdrop).statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Box(Modifier.size(9.dp).clip(CircleShape).background(accent))
@@ -163,11 +181,11 @@ private fun NivoraApp() {
                         Text("NESSUNA APP TROVATA", color = muted, fontSize = 11.sp, letterSpacing = 1.sp)
                     }
                 } else if (grid) {
-                    LazyVerticalGrid(columns = GridCells.Fixed(if (compact) 5 else 4), modifier = Modifier.weight(1f),
+                    LazyVerticalGrid(columns = GridCells.Fixed(if (compact) columns.coerceAtLeast(4) else columns), modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = { favorites = toggleFavorite(favorites, app.packageName, prefs); Toast.makeText(context,
                                     if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show() })
@@ -202,7 +220,12 @@ private fun NivoraApp() {
                     SettingSwitch("Griglia di icone", grid) { grid = it; prefs.edit().putBoolean("grid", it).apply() }
                     SettingSwitch("Mostra nomi app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
-                    Text("Aspetto ispirato a Nothing OS. Altre opzioni e widget arriveranno nelle prossime versioni.",
+                    SettingChoice("Colonne", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
+                    SettingChoice("Dimensione icone", "$iconSize dp", "40", "50", "60") { iconSize = it.toInt(); prefs.edit().putInt("iconSize", iconSize).apply() }
+                    SettingChoice("Carattere", fontChoice, "System", "Mono", "Serif") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                    SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
+                    SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
+                    Text("Le modifiche vengono salvate automaticamente. Widget nativi e pacchetti icone sono in sviluppo.",
                         color = muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             },
@@ -230,13 +253,13 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean,
+private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) 42.dp else 50.dp))
+                update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(7.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
         if (showLabel) {
@@ -266,6 +289,20 @@ private fun BottomAction(label: String, selected: Boolean, accent: Color, fg: Co
     Row(Modifier.fillMaxWidth(0.48f).clip(RoundedCornerShape(12.dp)).background(if (selected) panel else Color.Transparent)
         .combinedClickable(onClick = onClick, onLongClick = {}).padding(vertical = 13.dp), horizontalArrangement = Arrangement.Center) {
         Text(label, color = if (selected) accent else fg, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun SettingChoice(label: String, value: String, vararg choices: String, onChange: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
+        Box {
+            TextButton(onClick = { expanded = true }) { Text(value, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp) }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                choices.forEach { choice -> DropdownMenuItem(text = { Text(choice) }, onClick = { onChange(choice); expanded = false }) }
+            }
+        }
     }
 }
 
