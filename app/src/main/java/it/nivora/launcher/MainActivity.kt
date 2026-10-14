@@ -108,7 +108,7 @@ private fun NivoraApp() {
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF202424)
     val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
-    val selectedFont = when (fontChoice) { "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; "Cursive" -> FontFamily.Cursive; "Rounded" -> FontFamily.SansSerif; "System" -> FontFamily.Default; else -> FontFamily.SansSerif }
+    val selectedFont = when (fontChoice) { "Mono iOS" -> FontFamily.Monospace; "Serif iOS" -> FontFamily.Serif; "Cursive" -> FontFamily.Cursive; "Rounded iOS" -> FontFamily.SansSerif; "Condensed" -> FontFamily.SansSerif; "iOS Style" -> FontFamily.SansSerif; "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; "Rounded" -> FontFamily.SansSerif; else -> FontFamily.Default }
     val customTypography = Typography().let { base -> base.copy(
         displayLarge = base.displayLarge.copy(fontFamily = selectedFont), displayMedium = base.displayMedium.copy(fontFamily = selectedFont),
         displaySmall = base.displaySmall.copy(fontFamily = selectedFont), headlineLarge = base.headlineLarge.copy(fontFamily = selectedFont),
@@ -146,7 +146,9 @@ private fun NivoraApp() {
                         color = muted, fontSize = 11.sp, letterSpacing = 2.sp)
                     Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)) {
                         Text(clock.format(DateTimeFormatter.ofPattern("HH:mm")), color = fg, fontSize = 62.sp,
-                            fontWeight = FontWeight.Light, fontFamily = FontFamily.Monospace, letterSpacing = (-3).sp, lineHeight = 66.sp)
+                            fontWeight = if (fontChoice == "iOS Style" || fontChoice == "Rounded iOS") FontWeight.Normal else FontWeight.Light,
+                            fontFamily = if (fontChoice == "Mono iOS") FontFamily.Monospace else selectedFont,
+                            letterSpacing = if (fontChoice == "iOS Style") (-2).sp else (-3).sp, lineHeight = 66.sp)
                         Spacer(Modifier.width(10.dp))
                         Text("●", color = accent, fontSize = 10.sp, modifier = Modifier.padding(bottom = 14.dp))
                     }
@@ -232,7 +234,7 @@ private fun NivoraApp() {
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
                     SettingChoice("Colonne", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
                     SettingChoice("Dimensione icone", "$iconSize dp", "40", "50", "60") { iconSize = it.toInt(); prefs.edit().putInt("iconSize", iconSize).apply() }
-                    SettingChoice("Carattere", fontChoice, "System", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                    SettingChoice("Carattere", fontChoice, "System", "iOS Style", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
                     SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                     SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
                     Text("Le modifiche vengono salvate automaticamente. Contrasto aumentato per la leggibilità. La generazione IA di sfondi e icone richiede un servizio dedicato; non è ancora attiva. Widget nativi sono in sviluppo.",
@@ -274,7 +276,8 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         }
         if (showLabel) {
             Spacer(Modifier.height(7.dp))
-            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 12.sp)
+            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 12.sp,
+                letterSpacing = if (fontChoice == "iOS Style") (-0.15).sp else 0.sp, fontWeight = if (fontChoice == "iOS Style") FontWeight.Medium else FontWeight.Normal)
         }
     }
 }
