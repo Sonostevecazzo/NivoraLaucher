@@ -2,6 +2,7 @@ package it.nivora.launcher
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
@@ -108,7 +109,17 @@ private fun NivoraApp() {
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF202424)
     val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
-    val selectedFont = when (fontChoice) { "Mono iOS" -> FontFamily.Monospace; "Serif iOS" -> FontFamily.Serif; "Cursive" -> FontFamily.Cursive; "Rounded iOS" -> FontFamily.SansSerif; "Condensed" -> FontFamily.SansSerif; "iOS Style" -> FontFamily.SansSerif; "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; "Rounded" -> FontFamily.SansSerif; else -> FontFamily.Default }
+    val selectedFont = when (fontChoice) {
+        "Mono iOS", "Mono" -> FontFamily.Monospace
+        "Serif iOS", "Serif" -> FontFamily.Serif
+        "Cursive" -> FontFamily.Cursive
+        "Rounded iOS", "Rounded" -> FontFamily(Typeface.create("sans-serif-rounded", Typeface.NORMAL))
+        "Condensed" -> FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
+        "iOS Style" -> FontFamily(Typeface.create("sans-serif", Typeface.NORMAL))
+        "iOS Light" -> FontFamily(Typeface.create("sans-serif-light", Typeface.NORMAL))
+        "iOS Medium" -> FontFamily(Typeface.create("sans-serif-medium", Typeface.NORMAL))
+        else -> FontFamily.Default
+    }
     val customTypography = Typography().let { base -> base.copy(
         displayLarge = base.displayLarge.copy(fontFamily = selectedFont), displayMedium = base.displayMedium.copy(fontFamily = selectedFont),
         displaySmall = base.displaySmall.copy(fontFamily = selectedFont), headlineLarge = base.headlineLarge.copy(fontFamily = selectedFont),
@@ -193,7 +204,7 @@ private fun NivoraApp() {
                         Text("NESSUNA APP TROVATA", color = muted, fontSize = 11.sp, letterSpacing = 1.sp)
                     }
                 } else if (grid) {
-                    LazyVerticalGrid(columns = GridCells.Fixed(if (compact) columns.coerceAtLeast(4) else columns), modifier = Modifier.weight(1f),
+                    LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
@@ -234,7 +245,7 @@ private fun NivoraApp() {
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
                     SettingChoice("Colonne", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
                     SettingChoice("Dimensione icone", "$iconSize dp", "40", "50", "60") { iconSize = it.toInt(); prefs.edit().putInt("iconSize", iconSize).apply() }
-                    SettingChoice("Carattere", fontChoice, "System", "iOS Style", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                    SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
                     SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                     SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
                     Text("Le modifiche vengono salvate automaticamente. Contrasto aumentato per la leggibilità. La generazione IA di sfondi e icone richiede un servizio dedicato; non è ancora attiva. Widget nativi sono in sviluppo.",
