@@ -1,34 +1,71 @@
-name: Android debug build
+name: Android APK build
+
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NIVORA_KEYSTORE_BASE64: ${{ secrets.NIVORA_KEYSTORE_BASE64 }}
+      NIVORA_STORE_PASSWORD: ${{ secrets.NIVORA_STORE_PASSWORD }}
+      NIVORA_KEY_ALIAS: ${{ secrets.NIVORA_KEY_ALIAS }}
+      NIVORA_KEY_PASSWORD: ${{ secrets.NIVORA_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: "platform-tools"
           accept-android-sdk-licenses: true
+
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
-      - name: Build debug APK
+
+      - name: Prepare persistent release signing key
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
+        shell: bash
+        run: |
+          echo "$NIVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nivora-release.jks"
+          echo "NIVORA_KEYSTORE_PATH=$RUNNER_TEMP/nivora-release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Upload signed release APK
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nivora-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Build debug APK (until release signing is configured)
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
         run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK artifact
+
+      - name: Upload debug APK
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: nivora-debug-apk
