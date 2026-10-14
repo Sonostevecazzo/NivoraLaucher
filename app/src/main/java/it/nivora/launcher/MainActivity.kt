@@ -105,13 +105,23 @@ private fun NivoraApp() {
         else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
     }
     val fg = if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
-    val muted = if (fg == Color(0xFF111212)) Color(0xFF707370) else Color(0xFF8A8D8B)
-    val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF171919)
+    val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
+    val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF202424)
     val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
-    val selectedFont = when (fontChoice) { "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; else -> FontFamily.SansSerif }
+    val selectedFont = when (fontChoice) { "Mono" -> FontFamily.Monospace; "Serif" -> FontFamily.Serif; "Cursive" -> FontFamily.Cursive; "Rounded" -> FontFamily.SansSerif; "System" -> FontFamily.Default; else -> FontFamily.SansSerif }
+    val customTypography = Typography().let { base -> base.copy(
+        displayLarge = base.displayLarge.copy(fontFamily = selectedFont), displayMedium = base.displayMedium.copy(fontFamily = selectedFont),
+        displaySmall = base.displaySmall.copy(fontFamily = selectedFont), headlineLarge = base.headlineLarge.copy(fontFamily = selectedFont),
+        headlineMedium = base.headlineMedium.copy(fontFamily = selectedFont), headlineSmall = base.headlineSmall.copy(fontFamily = selectedFont),
+        titleLarge = base.titleLarge.copy(fontFamily = selectedFont), titleMedium = base.titleMedium.copy(fontFamily = selectedFont),
+        titleSmall = base.titleSmall.copy(fontFamily = selectedFont), bodyLarge = base.bodyLarge.copy(fontFamily = selectedFont),
+        bodyMedium = base.bodyMedium.copy(fontFamily = selectedFont), bodySmall = base.bodySmall.copy(fontFamily = selectedFont),
+        labelLarge = base.labelLarge.copy(fontFamily = selectedFont), labelMedium = base.labelMedium.copy(fontFamily = selectedFont),
+        labelSmall = base.labelSmall.copy(fontFamily = selectedFont)
+    ) }
 
     MaterialTheme(colorScheme = if (fg != Color(0xFF111212)) darkColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)
-        else lightColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg), typography = Typography(defaultFontFamily = selectedFont)) {
+        else lightColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg), typography = customTypography) {
         Surface(Modifier.fillMaxSize(), color = bg) {
             val backdrop = when (wallpaper) {
                 "Gradient" -> Brush.verticalGradient(listOf(if (dark) Color(0xFF242833) else Color(0xFFE5E9F2), bg, if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)))
@@ -222,10 +232,10 @@ private fun NivoraApp() {
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
                     SettingChoice("Colonne", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
                     SettingChoice("Dimensione icone", "$iconSize dp", "40", "50", "60") { iconSize = it.toInt(); prefs.edit().putInt("iconSize", iconSize).apply() }
-                    SettingChoice("Carattere", fontChoice, "System", "Mono", "Serif") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                    SettingChoice("Carattere", fontChoice, "System", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
                     SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                     SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
-                    Text("Le modifiche vengono salvate automaticamente. Widget nativi e pacchetti icone sono in sviluppo.",
+                    Text("Le modifiche vengono salvate automaticamente. Contrasto aumentato per la leggibilità. La generazione IA di sfondi e icone richiede un servizio dedicato; non è ancora attiva. Widget nativi sono in sviluppo.",
                         color = muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             },
