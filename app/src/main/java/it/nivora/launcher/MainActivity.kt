@@ -263,7 +263,7 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BottomAction(label: String, selected: Boolean, accent: Color, fg: Color, panel: Color, onClick: () -> Unit) {
-    Row(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (selected) panel else Color.Transparent)
+    Row(Modifier.fillMaxWidth(0.48f).clip(RoundedCornerShape(12.dp)).background(if (selected) panel else Color.Transparent)
         .combinedClickable(onClick = onClick, onLongClick = {}).padding(vertical = 13.dp), horizontalArrangement = Arrangement.Center) {
         Text(label, color = if (selected) accent else fg, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
     }
