@@ -3,6 +3,18 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val signingStorePath = System.getenv("NIVORA_KEYSTORE_PATH")
+val signingStorePassword = System.getenv("NIVORA_STORE_PASSWORD")
+val signingKeyAlias = System.getenv("NIVORA_KEY_ALIAS")
+val signingKeyPassword = System.getenv("NIVORA_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    signingStorePath,
+    signingStorePassword,
+    signingKeyAlias,
+    signingKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "it.nivora.launcher"
     compileSdk = 35
@@ -19,7 +31,25 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("stableRelease") {
+                storeFile = file(signingStorePath!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("stableRelease")
+                isMinifyEnabled = false
+            }
+        }
+    }
 }
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.02.00"))
     implementation("androidx.activity:activity-compose:1.10.1")
