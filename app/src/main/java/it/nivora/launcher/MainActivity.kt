@@ -197,7 +197,7 @@ private fun NivoraApp() {
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = { favorites = toggleFavorite(favorites, app.packageName, prefs); Toast.makeText(context,
                                     if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show() })
@@ -265,7 +265,7 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int,
+private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
