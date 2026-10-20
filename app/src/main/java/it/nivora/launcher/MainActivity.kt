@@ -3,6 +3,8 @@ package it.nivora.launcher
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
@@ -11,7 +13,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +56,28 @@ import java.util.Locale
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
+private data class ThemePreset(
+    val name: String,
+    val background: Color,
+    val foreground: Color,
+    val muted: Color,
+    val panel: Color,
+    val accent: Color,
+    val glow: Color,
+    val light: Boolean = false
+)
+
+private val NivoraThemes = listOf(
+    ThemePreset("Glass Mono", Color(0xFF0B0D0F), Color(0xFFF1F2F2), Color(0xFFA5AAAD), Color(0xFF202326), Color(0xFFE9EBEC), Color(0xFF30363B)),
+    ThemePreset("Obsidian", Color(0xFF050506), Color(0xFFF5F5F5), Color(0xFF929498), Color(0xFF17181A), Color(0xFFF0F0F0), Color(0xFF202124)),
+    ThemePreset("Arctic", Color(0xFFE9EFF2), Color(0xFF151B20), Color(0xFF66717A), Color(0xFFD4E0E6), Color(0xFF283740), Color(0xFFF9FCFF), true),
+    ThemePreset("Graphite", Color(0xFF202326), Color(0xFFEDEEEF), Color(0xFFADB1B4), Color(0xFF303438), Color(0xFFF0F1F1), Color(0xFF3B4146)),
+    ThemePreset("Sand", Color(0xFFEFE8DC), Color(0xFF25221D), Color(0xFF726B62), Color(0xFFE1D7C7), Color(0xFF383027), Color(0xFFFFF8ED), true),
+    ThemePreset("Sage", Color(0xFF1D2420), Color(0xFFE4EEE6), Color(0xFFA0B0A4), Color(0xFF2B3730), Color(0xFFDCE9DF), Color(0xFF35463B)),
+    ThemePreset("Plum", Color(0xFF211B26), Color(0xFFF1E8F3), Color(0xFFBBAAC1), Color(0xFF342A39), Color(0xFFEDE0F0), Color(0xFF413047)),
+    ThemePreset("Blue Pulse", Color(0xFF111E2D), Color(0xFFE8F1FB), Color(0xFF9EB4CB), Color(0xFF22344A), Color(0xFFC8E0FB), Color(0xFF29435E))
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,15 +90,16 @@ class MainActivity : ComponentActivity() {
 private fun NivoraApp() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("nivora_preferences", 0) }
-    var dark by remember { mutableStateOf(prefs.getBoolean("dark", true)) }
+    var themeChoice by remember { mutableStateOf(prefs.getString("themeChoice", "Glass Mono") ?: "Glass Mono") }
+    var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
+    var monoIcons by remember { mutableStateOf(prefs.getBoolean("monoIcons", true)) }
+    var glassEnabled by remember { mutableStateOf(prefs.getBoolean("glassEnabled", true)) }
     var grid by remember { mutableStateOf(prefs.getBoolean("grid", true)) }
     var showLabels by remember { mutableStateOf(prefs.getBoolean("labels", true)) }
     var compact by remember { mutableStateOf(prefs.getBoolean("compact", false)) }
     var columns by remember { mutableIntStateOf(prefs.getInt("columns", 4).coerceIn(3, 5)) }
     var iconSize by remember { mutableIntStateOf(prefs.getInt("iconSize", 50).coerceIn(40, 64)) }
     var fontChoice by remember { mutableStateOf(prefs.getString("fontChoice", "System") ?: "System") }
-    var wallpaper by remember { mutableStateOf(prefs.getString("wallpaper", "OLED") ?: "OLED") }
-    var accentChoice by remember { mutableStateOf(prefs.getString("accentChoice", "Red") ?: "Red") }
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
@@ -110,16 +138,13 @@ private fun NivoraApp() {
         "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
         else -> filteredApps.sortedBy { it.label.lowercase() }
     }
-    val bg = when (wallpaper) {
-        "Graphite" -> Color(0xFF202326)
-        "Warm" -> Color(0xFFF0E9DE)
-        "Paper" -> Color(0xFFF7F7F2)
-        else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
-    }
-    val fg = if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
-    val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
-    val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF202424)
-    val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
+    val selectedTheme = NivoraThemes.firstOrNull { it.name == themeChoice } ?: NivoraThemes.first()
+    val bg = selectedTheme.background
+    val fg = selectedTheme.foreground
+    val muted = selectedTheme.muted
+    val accent = selectedTheme.accent
+    val panel = if (glassEnabled) selectedTheme.panel.copy(alpha = 0.56f) else selectedTheme.panel
+    val glassBorder = if (selectedTheme.light) Color.White.copy(alpha = 0.78f) else Color.White.copy(alpha = 0.16f)
     val selectedFont = when (fontChoice) {
         "Mono iOS", "Mono" -> FontFamily.Monospace
         "Serif iOS", "Serif" -> FontFamily.Serif
@@ -142,19 +167,17 @@ private fun NivoraApp() {
         labelSmall = base.labelSmall.copy(fontFamily = selectedFont)
     ) }
 
-    MaterialTheme(colorScheme = if (fg != Color(0xFF111212)) darkColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)
+    MaterialTheme(colorScheme = if (!selectedTheme.light) darkColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg)
         else lightColorScheme(primary = accent, background = bg, surface = panel, onBackground = fg, onSurface = fg), typography = customTypography) {
         Surface(Modifier.fillMaxSize(), color = bg) {
-            val backdrop = when (wallpaper) {
-                "Gradient" -> Brush.verticalGradient(listOf(if (dark) Color(0xFF242833) else Color(0xFFE5E9F2), bg, if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)))
-                "Sunset" -> Brush.verticalGradient(listOf(Color(0xFF4B253F), Color(0xFF1A202C), Color(0xFF090A0A)))
-                else -> Brush.verticalGradient(listOf(bg, bg))
-            }
+            val backdrop = Brush.verticalGradient(listOf(selectedTheme.glow.copy(alpha = if (glassEnabled) 0.72f else 0.28f), bg, bg))
             Column(Modifier.fillMaxSize().background(backdrop).statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
-                        Text("N I V O R A", color = fg, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                    if (showLogo) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Box(Modifier.size(6.dp).clip(CircleShape).background(accent))
+                            Text("N I V O R A", color = fg, fontSize = 11.sp, letterSpacing = 2.2.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { showSettings = true }) {
@@ -189,21 +212,26 @@ private fun NivoraApp() {
                     }
                 }
 
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(horizontal = 14.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
+                val searchShape = RoundedCornerShape(15.dp)
+                Row(
+                    Modifier.fillMaxWidth().clip(searchShape).background(panel)
+                        .then(if (glassEnabled) Modifier.border(1.dp, glassBorder, searchShape) else Modifier)
+                        .padding(horizontal = 12.dp, vertical = if (showAllApps) 11.dp else 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = "Cerca app", tint = muted, modifier = Modifier.size(if (showAllApps) 19.dp else 17.dp))
+                    Spacer(Modifier.width(9.dp))
                     BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
-                        singleLine = true, textStyle = TextStyle(color = fg, fontSize = 15.sp),
+                        singleLine = true, textStyle = TextStyle(color = fg, fontSize = if (showAllApps) 14.sp else 13.sp),
                         cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
-                            if (query.isEmpty()) Text("Cerca un'app o un pacchetto", color = muted, fontSize = 15.sp)
+                            if (query.isEmpty()) Text(if (showAllApps) "Cerca un'app" else "Cerca", color = muted, fontSize = if (showAllApps) 14.sp else 13.sp)
                             inner()
                         })
-                    if (query.isNotEmpty()) Text("×", color = muted, fontSize = 22.sp,
+                    if (query.isNotEmpty()) Text("×", color = muted, fontSize = 20.sp,
                         modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (showAllApps) 12.dp else 8.dp))
 
                 if (showAllApps) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -243,6 +271,7 @@ private fun NivoraApp() {
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
                             AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice,
+                                monoIcons, accent, panel, glassEnabled, glassBorder,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -253,7 +282,7 @@ private fun NivoraApp() {
                 } else {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted,
+                            AppListRow(app, favorites.contains(app.packageName), fg, muted, monoIcons, accent, panel, glassEnabled, glassBorder,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -277,17 +306,24 @@ private fun NivoraApp() {
             containerColor = panel,
             title = { Text("PERSONALIZZA", color = fg, letterSpacing = 2.sp, fontSize = 15.sp) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SettingSwitch("Tema scuro", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
+                Column(
+                    Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    SettingChoice("Tema preimpostato", themeChoice, "Glass Mono", "Obsidian", "Arctic", "Graphite", "Sand", "Sage", "Plum", "Blue Pulse") {
+                        themeChoice = it
+                        prefs.edit().putString("themeChoice", it).apply()
+                    }
+                    SettingSwitch("Effetto vetro", glassEnabled) { glassEnabled = it; prefs.edit().putBoolean("glassEnabled", it).apply() }
+                    SettingSwitch("Icone monocromatiche", monoIcons) { monoIcons = it; prefs.edit().putBoolean("monoIcons", it).apply() }
+                    SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
                     SettingSwitch("Griglia di icone", grid) { grid = it; prefs.edit().putBoolean("grid", it).apply() }
                     SettingSwitch("Mostra nomi app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
                     SettingChoice("Colonne", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
                     SettingChoice("Dimensione icone", "$iconSize dp", "40", "50", "60") { iconSize = it.toInt(); prefs.edit().putInt("iconSize", iconSize).apply() }
                     SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
-                    SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
-                    SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
-                    Text("Ispirazione: navigazione rapida di Niagara, essenzialità di Olauncher e personalizzazione di Lawnchair. I widget Android nativi, gli sfondi dalla galleria e i pacchetti icone restano funzioni da completare.",
+                    Text("Preset originali ispirati alla personalizzazione dei temi di app come Revolut e ai temi pronti all'uso di Niagara. Effetto vetro leggero, palette coerente e icone desaturate. I widget Android nativi, gli sfondi dalla galleria e i pacchetti icone restano funzioni da completare.",
                         color = muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             },
@@ -316,13 +352,20 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String,
+                    monoIcons: Boolean, accent: Color, panel: Color, glassEnabled: Boolean, glassBorder: Color,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
-        .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val tileShape = RoundedCornerShape(16.dp)
+    Column(Modifier.fillMaxWidth().clip(tileShape).background(if (glassEnabled) panel else Color.Transparent)
+        .then(if (glassEnabled) Modifier.border(1.dp, glassBorder, tileShape) else Modifier)
+        .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+        .padding(vertical = if (compact) 7.dp else 9.dp, horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
-            if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
+                update = {
+                    it.setImageDrawable(app.icon)
+                    it.colorFilter = if (monoIcons) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
+                }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
+            if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(accent))
         }
         if (showLabel) {
             Spacer(Modifier.height(7.dp))
@@ -334,17 +377,24 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
+private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, monoIcons: Boolean, accent: Color,
+                       panel: Color, glassEnabled: Boolean, glassBorder: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val rowShape = RoundedCornerShape(15.dp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(rowShape).background(if (glassEnabled) panel else Color.Transparent)
+        .then(if (glassEnabled) Modifier.border(1.dp, glassBorder, rowShape) else Modifier)
+        .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(36.dp))
+            update = {
+                it.setImageDrawable(app.icon)
+                it.colorFilter = if (monoIcons) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
+            }, modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
             Text(app.label, color = fg, fontSize = 15.sp, maxLines = 1)
             Text(app.packageName, color = muted, fontSize = 10.sp, maxLines = 1)
         }
-        if (favorite) Text("●", color = Color(0xFFD71920), fontSize = 8.sp)
+        if (favorite) Text("●", color = accent, fontSize = 8.sp)
         else Text("↗", color = muted, fontSize = 14.sp)
     }
 }
