@@ -54,7 +54,20 @@ jobs:
           accept-android-sdk-licenses: true
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0" "ndk;27.0.12077973"
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          # The project has no native sources; use NDK only for ELF validation utilities.
+          # If Google's CDN returns a truncated NDK archive, curl's retries are safer than sdkmanager's one-shot download.
+          NDK_DIR="$ANDROID_HOME/ndk/27.0.12077973"
+          if [ ! -x "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump" ]; then
+            mkdir -p "$RUNNER_TEMP/ndk-download"
+            curl --fail --location --retry 5 --retry-all-errors --retry-delay 2 \
+              "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" \
+              --output "$RUNNER_TEMP/ndk-download/android-ndk-r27c-linux.zip"
+            unzip -q "$RUNNER_TEMP/ndk-download/android-ndk-r27c-linux.zip" -d "$RUNNER_TEMP/ndk-download"
+            mkdir -p "$ANDROID_HOME/ndk"
+            mv "$RUNNER_TEMP/ndk-download/android-ndk-r27c" "$NDK_DIR"
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
