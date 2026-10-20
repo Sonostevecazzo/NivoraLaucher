@@ -92,17 +92,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun NivoraApp() {
     val context = LocalContext.current
-    BackHandler(
-        enabled = showSettings || showWallpaperStudio || showArcade || searchExpanded || showAllApps
-    ) {
-        when {
-            showWallpaperStudio -> showWallpaperStudio = false
-            showArcade -> showArcade = false
-            showSettings -> showSettings = false
-            searchExpanded -> { searchExpanded = false; query = "" }
-            showAllApps -> { showAllApps = false; query = ""; favoritesOnly = true }
-        }
-    }
     val prefs = remember { context.getSharedPreferences("nivora_preferences", 0) }
     var dark by remember { mutableStateOf(prefs.getBoolean("dark", true)) }
     var grid by remember { mutableStateOf(prefs.getBoolean("grid", true)) }
@@ -135,6 +124,18 @@ private fun NivoraApp() {
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
+
+    BackHandler(
+        enabled = showSettings || showWallpaperStudio || showArcade || searchExpanded || showAllApps
+    ) {
+        when {
+            showWallpaperStudio -> showWallpaperStudio = false
+            showArcade -> showArcade = false
+            showSettings -> showSettings = false
+            searchExpanded -> { searchExpanded = false; query = "" }
+            showAllApps -> { showAllApps = false; query = ""; favoritesOnly = true }
+        }
+    }
 
     val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -241,11 +242,15 @@ private fun NivoraApp() {
         "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5)
         "Creato" -> if (dark) Color(0xFF111316) else Color(0xFFF0F1F1)
         "Personalizzato" -> when (wallpaper) {
-        "Graphite" -> Color(0xFF202326)
-        "Warm" -> Color(0xFFF0E9DE)
-        "Paper" -> Color(0xFFF7F7F2)
+            "Graphite" -> Color(0xFF202326)
+            "Warm" -> Color(0xFFF0E9DE)
+            "Paper" -> Color(0xFFF7F7F2)
+            "Gradient" -> if (dark) Color(0xFF191D27) else Color(0xFFE5E9F2)
+            "Sunset" -> Color(0xFF30202C)
+            else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
+        }
         else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
-    } }
+    }
     val fg = if (themePreset == "Creato") { if (dark) Color(0xFFF4F4F0) else Color(0xFF111212) } else if (themePreset != "Personalizzato") { if (dark) Color(0xFFF4F4F0) else Color(0xFF111212) } else if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFDDE2E4).copy(alpha = 0.72f) else Color(0xFF30363A).copy(alpha = 0.62f)
