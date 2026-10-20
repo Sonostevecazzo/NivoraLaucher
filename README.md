@@ -32,6 +32,7 @@ When all four secrets are present, GitHub Actions builds and uploads `nivora-rel
 - Minimal home screen with a live clock and date
 - Compact, low-emphasis home search that expands in the app drawer
 - Optional Nivora wordmark, controlled from settings
+- Optional grayscale app icons for a cohesive monochrome look
 - Glass-style translucent panels with fine edge highlights; can be disabled
 - Preset appearance palettes: Glass Mono, Obsidian, Frosted Silver, Graphite, Midnight, Sage, Bronze, and Pearl
 - A custom theme mode for manual light/dark, background, and accent choices
