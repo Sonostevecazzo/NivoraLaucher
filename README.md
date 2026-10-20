@@ -29,13 +29,16 @@ When all four secrets are present, GitHub Actions builds and uploads `nivora-rel
 
 ## Current features
 
-- Minimal home screen with a large live clock and date
-- App search by label or package name
-- App drawer with grid/list views and favorites-only filter
+- Minimal home screen with a live clock and date
+- Compact, low-emphasis home search that expands in the app drawer
+- Optional Nivora wordmark, controlled from settings
+- Optional grayscale app icons for a cohesive monochrome look
+- Glass-style translucent panels with fine edge highlights; can be disabled
+- Preset appearance palettes: Glass Mono, Obsidian, Frosted Silver, Graphite, Midnight, Sage, Bronze, and Pearl
+- A custom theme mode for manual light/dark, background, and accent choices
+- App drawer with grid/list views, search by label or package name, and favorites-only filter
 - Long-press an app to add or remove it from favorites
-- Sort the app drawer by name, favorites, or the current fallback ordering
-- Adjustable grid density, icon size, labels, typeface, colors, and preset backgrounds
-- Preferences saved locally on the device
+- Adjustable grid density, icon size, labels, typeface, and other preferences saved locally
 
 ## Development roadmap
 
@@ -47,4 +50,9 @@ When all four secrets are present, GitHub Actions builds and uploads `nivora-rel
 
 ## Design references
 
-Nivora takes inspiration from broad interaction patterns rather than copying another app's visuals: fast one-handed access associated with Niagara, a restrained home screen like Olauncher, and opt-in personalization similar to Lawnchair. These projects are references for usability and direction, not dependencies.
+Nivora takes inspiration from broad interaction patterns rather than copying another app's visuals. Niagara and Olauncher inform the focus on quick access and a calmer home screen. Revolut's public design posts describe a theme system, custom backgrounds/wallpapers, and colour themes; Nivora translates the general idea of named appearance packs into its own launcher palettes and controls. Theme availability in Revolut may vary by plan and region.
+
+- [Revolut 10: themes, backgrounds, widgets and navigation](https://www.revolut.com/blog/post/revolut-10/)
+- [Revolut Tech: custom Android UI themes](https://medium.com/revolut/customising-android-app-ui-with-themes-a251e42b1451)
+
+These are references for customization patterns and palette direction, not copied screen layouts, assets, or brand artwork.
