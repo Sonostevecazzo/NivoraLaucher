@@ -324,9 +324,17 @@ private fun NivoraApp() {
                     }
                 } else if (visibleApps.isEmpty()) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(if (favoritesOnly) "NESSUNA APP PREFERITA" else "NESSUNA APP TROVATA", color = muted, fontSize = 11.sp, letterSpacing = 1.sp)
-                        if (favoritesOnly) {
-                            TextButton(onClick = { showAllApps = true; favoritesOnly = false }) { Text("MOSTRA TUTTE", color = accent) }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                if (!showAllApps && favoritesOnly) "TIENI PREMUTA UN’APP PER SALVARLA"
+                                else if (favoritesOnly) "NESSUNA APP PREFERITA" else "NESSUNA APP TROVATA",
+                                color = muted, fontSize = 11.sp, letterSpacing = 1.sp, textAlign = TextAlign.Center
+                            )
+                            if (favoritesOnly) {
+                                TextButton(onClick = { showAllApps = true; favoritesOnly = false }) {
+                                    Text(if (showAllApps) "MOSTRA TUTTE" else "APRI APP", color = accent)
+                                }
+                            }
                         }
                     }
                 } else if (grid) {
@@ -335,7 +343,12 @@ private fun NivoraApp() {
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
                             AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, if (monochromeIcons) accent else null,
-                                onClick = { launchApp(context, app) },
+                                onClick = {
+                                    launchApp(context, app, prefs) { packageName ->
+                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                    }
+                                },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
                                     Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
@@ -748,11 +761,14 @@ private fun BlockfallGame(accent: Color, fg: Color, panel: Color, modifier: Modi
 }
 
 
-private fun launchApp(context: android.content.Context, app: LaunchableApp) {
+private fun launchApp(context: android.content.Context, app: LaunchableApp, prefs: android.content.SharedPreferences, onLaunched: (String) -> Unit) {
     val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
     if (launch != null) {
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try { context.startActivity(launch) } catch (_: Exception) {
+        try {
+            context.startActivity(launch)
+            onLaunched(app.packageName)
+        } catch (_: Exception) {
             Toast.makeText(context, "Impossibile aprire l'app", Toast.LENGTH_SHORT).show()
         }
     }
