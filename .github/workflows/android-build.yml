@@ -34,7 +34,7 @@ jobs:
           accept-android-sdk-licenses: true
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -48,17 +48,20 @@ jobs:
           echo "$NIVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nivora-release.jks"
           echo "NIVORA_KEYSTORE_PATH=$RUNNER_TEMP/nivora-release.jks" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      - name: Build signed release AAB for Google Play
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
-        run: gradle --no-daemon :app:assembleRelease
+        run: gradle --no-daemon :app:bundleRelease
 
-      - name: Upload signed release APK
+      - name: Upload signed release AAB
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: nivora-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: nivora-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+
+      - name: Run JVM game logic tests
+        run: gradle --no-daemon :app:testDebugUnitTest
 
       - name: Build debug APK (until release signing is configured)
         if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
