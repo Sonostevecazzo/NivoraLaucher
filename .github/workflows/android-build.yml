@@ -103,56 +103,7 @@ jobs:
               echo "16 KB ELF LOAD alignment failed for $LIB_PATH"
               exit 1
             fi
-          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\\.so$' || true)
-
-      - name: Upload debug APK
-        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: nivora-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
- || true)
-
-      - name: Upload signed release AAB
-        if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: nivora-release-aab
-          path: app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
-
-      - name: Build debug APK (until release signing is configured)
-        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
-        run: gradle --no-daemon :app:assembleDebug
-
-      - name: Validate debug APK 16 KB compatibility
-        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
-          OBJDUMP="$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
-          TMP_DIR="$(mktemp -d)"
-          trap 'rm -rf "$TMP_DIR"' EXIT
-          while IFS= read -r LIB_PATH; do
-            LIB_FILE="$TMP_DIR/$(basename "$LIB_PATH")"
-            unzip -p "$APK" "$LIB_PATH" > "$LIB_FILE"
-            if ! "$OBJDUMP" -p "$LIB_FILE" | awk '/LOAD/ { for (i=1; i<=NF; i++) if ($i=="align") { split($(i+1), parts, /\*\*/); found=1; if ((parts[2]+0) < 14) bad=1 } } END { if (!found || bad) exit 1 }'; then
-              echo "16 KB ELF LOAD alignment failed for $LIB_PATH"
-              exit 1
-            fi
-          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so || true)
-
-      - name: Upload debug APK
-        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: nivora-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
- || true)
+          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so$' || true)
 
       - name: Upload debug APK
         if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
