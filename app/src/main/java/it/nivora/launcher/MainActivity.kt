@@ -2,15 +2,25 @@ package it.nivora.launcher
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.Typeface
+import android.net.Uri
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +31,8 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
@@ -28,10 +40,22 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +72,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.random.Random
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
@@ -69,7 +94,7 @@ private fun NivoraApp() {
     var compact by remember { mutableStateOf(prefs.getBoolean("compact", false)) }
     var columns by remember { mutableIntStateOf(prefs.getInt("columns", 4).coerceIn(3, 5)) }
     var iconSize by remember { mutableIntStateOf(prefs.getInt("iconSize", 50).coerceIn(40, 64)) }
-    var fontChoice by remember { mutableStateOf(prefs.getString("fontChoice", "System") ?: "System") }
+    var fontChoice by remember { mutableStateOf(prefs.getString("fontChoice", "Mono") ?: "Mono") }
     var wallpaper by remember { mutableStateOf(prefs.getString("wallpaper", "OLED") ?: "OLED") }
     var accentChoice by remember { mutableStateOf(prefs.getString("accentChoice", "Red") ?: "Red") }
     var query by remember { mutableStateOf("") }
@@ -78,12 +103,57 @@ private fun NivoraApp() {
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     var themePreset by remember { mutableStateOf(prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass") }
+    var monochromeIcons by remember { mutableStateOf(prefs.getBoolean("monochromeIcons", true)) }
+    var customWallpaperUri by remember { mutableStateOf(prefs.getString("customWallpaperUri", null)) }
+    var customWallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var customAccentArgb by remember { mutableIntStateOf(prefs.getInt("customAccentArgb", 0xFFB8C0C8.toInt())) }
+    var generatedArtwork by remember { mutableStateOf(prefs.getBoolean("generatedArtwork", false)) }
+    var artSeed by remember { mutableIntStateOf(prefs.getInt("artSeed", 19)) }
+    var wallpaperPrompt by remember { mutableStateOf(prefs.getString("wallpaperPrompt", "") ?: "") }
+    var showWallpaperStudio by remember { mutableStateOf(false) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sortBy by remember { mutableStateOf(prefs.getString("sortBy", "Name") ?: "Name") }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
+
+    val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
+            customWallpaperUri = uri.toString()
+            generatedArtwork = false
+            themePreset = "Creato"
+            monochromeIcons = true
+            prefs.edit().putString("customWallpaperUri", uri.toString()).putBoolean("generatedArtwork", false)
+                .putString("themePreset", "Creato").putBoolean("monochromeIcons", true).apply()
+            showWallpaperStudio = false
+        }
+    }
+
+    LaunchedEffect(customWallpaperUri) {
+        val savedUri = customWallpaperUri
+        if (savedUri.isNullOrBlank()) {
+            customWallpaperBitmap = null
+        } else {
+            val bitmap = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(Uri.parse(savedUri))?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = 4 })
+                    }
+                }.getOrNull()
+            }
+            customWallpaperBitmap = bitmap
+            if (bitmap != null && themePreset == "Creato") {
+                customAccentArgb = extractWallpaperAccent(bitmap)
+                dark = isWallpaperDark(bitmap)
+                fontChoice = "iOS Light"
+                monochromeIcons = true
+                prefs.edit().putInt("customAccentArgb", customAccentArgb).putBoolean("dark", dark)
+                    .putString("fontChoice", fontChoice).putBoolean("monochromeIcons", true).apply()
+            }
+        }
+    }
 
     suspend fun loadApps(): List<LaunchableApp> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
@@ -113,14 +183,14 @@ private fun NivoraApp() {
         "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
         else -> filteredApps.sortedBy { it.label.lowercase() }
     }
-    val presetAccent = when (themePreset) { "Frost" -> Color(0xFF9FC8D8); "Ember" -> Color(0xFFD99A83); "Moss" -> Color(0xFF9EAF96); "Violet" -> Color(0xFFB5A5D5); else -> Color(0xFFB8C0C8) }
-    val bg = when (themePreset) { "Mono Glass" -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2); "Frost" -> if (dark) Color(0xFF111A20) else Color(0xFFEAF3F6); "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8); "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB); "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5); else -> when (wallpaper) {
+    val presetAccent = when (themePreset) { "Frost" -> Color(0xFF9FC8D8); "Ember" -> Color(0xFFD99A83); "Moss" -> Color(0xFF9EAF96); "Violet" -> Color(0xFFB5A5D5); "Creato" -> Color(customAccentArgb); else -> Color(0xFFB8C0C8) }
+    val bg = when (themePreset) { "Mono Glass" -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2); "Frost" -> if (dark) Color(0xFF111A20) else Color(0xFFEAF3F6); "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8); "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB); "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5); "Creato" -> if (dark) Color(0xFF111316) else Color(0xFFF0F1F1); else -> when (wallpaper) {
         "Graphite" -> Color(0xFF202326)
         "Warm" -> Color(0xFFF0E9DE)
         "Paper" -> Color(0xFFF7F7F2)
         else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
     } }
-    val fg = if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
+    val fg = if (themePreset == "Creato") Color(0xFFF4F4F0) else if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFDDE2E4).copy(alpha = 0.72f) else Color(0xFF30363A).copy(alpha = 0.62f)
     val accent = if (themePreset != "Personalizzato") presetAccent else when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
@@ -154,7 +224,16 @@ private fun NivoraApp() {
                 "Sunset" -> Brush.verticalGradient(listOf(Color(0xFF4B253F), Color(0xFF1A202C), Color(0xFF090A0A)))
                 else -> Brush.verticalGradient(listOf(bg, bg))
             }
-            Column(Modifier.fillMaxSize().background(backdrop).statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
+            Box(Modifier.fillMaxSize()) {
+                if (themePreset == "Creato" && customWallpaperBitmap != null) {
+                    Image(bitmap = customWallpaperBitmap!!.asImageBitmap(), contentDescription = "Sfondo personalizzato", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                } else if (themePreset == "Creato" && generatedArtwork) {
+                    GenerativeWallpaper(seed = artSeed, accent = accent, modifier = Modifier.fillMaxSize())
+                } else {
+                    Box(Modifier.fillMaxSize().background(backdrop))
+                }
+                if (themePreset == "Creato") Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (dark) 0.46f else 0.32f)))
+            Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (showLogo) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
@@ -194,8 +273,8 @@ private fun NivoraApp() {
                     }
                 }
 
-                if (showAllApps || searchExpanded) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
+                if (showAllApps || searchExpanded) PrismSurface(modifier = Modifier.fillMaxWidth(), tint = panel, shape = RoundedCornerShape(18.dp)) {
+                  Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                     BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
@@ -207,6 +286,7 @@ private fun NivoraApp() {
                         })
                     if (query.isNotEmpty()) Text("×", color = muted, fontSize = 22.sp,
                         modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
+                  }
                 }
                 if (showAllApps || searchExpanded) Spacer(Modifier.height(12.dp))
 
@@ -247,7 +327,7 @@ private fun NivoraApp() {
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, if (monochromeIcons) accent else null,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -258,7 +338,7 @@ private fun NivoraApp() {
                 } else {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted,
+                            AppListRow(app, favorites.contains(app.packageName), fg, muted, if (monochromeIcons) accent else null,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -273,6 +353,7 @@ private fun NivoraApp() {
                     BottomAction("APP", showAllApps, accent, fg, panel) { showAllApps = true; query = ""; favoritesOnly = false }
                 }
             }
+            }
         }
     }
 
@@ -282,10 +363,25 @@ private fun NivoraApp() {
             containerColor = panel,
             title = { Text("PERSONALIZZA", color = fg, letterSpacing = 2.sp, fontSize = 15.sp) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SettingSwitch("Tema scuro", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
                     SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
-                    SettingChoice("Tema preimpostato", themePreset, "Mono Glass", "Frost", "Ember", "Moss", "Violet", "Personalizzato") { themePreset = it; prefs.edit().putString("themePreset", it).apply() }
+                    SettingSwitch("Icone monocromatiche", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
+                    SettingChoice("Tema preimpostato", themePreset, "Mono Glass", "Frost", "Ember", "Moss", "Violet", "Creato", "Personalizzato") {
+                        themePreset = it
+                        if (it != "Creato") generatedArtwork = false
+                        val presetFont = when (it) { "Mono Glass" -> "Mono"; "Frost" -> "iOS Light"; "Ember" -> "Serif"; "Moss" -> "Rounded"; "Violet" -> "Rounded iOS"; "Creato" -> "iOS Light"; else -> fontChoice }
+                        fontChoice = presetFont
+                        if (it == "Mono Glass" || it == "Creato") monochromeIcons = true
+                        prefs.edit().putString("themePreset", it).putString("fontChoice", fontChoice)
+                            .putBoolean("monochromeIcons", monochromeIcons).putBoolean("generatedArtwork", generatedArtwork).apply()
+                    }
+                    OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Scegli uno sfondo dalla galleria")
+                    }
+                    OutlinedButton(onClick = { showSettings = false; showWallpaperStudio = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Apri Prism Atelier")
+                    }
                     SettingSwitch("Griglia di icone", grid) { grid = it; prefs.edit().putBoolean("grid", it).apply() }
                     SettingSwitch("Mostra nomi app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
@@ -300,6 +396,99 @@ private fun NivoraApp() {
             },
             confirmButton = { TextButton(onClick = { showSettings = false }) { Text("FATTO", color = accent) } }
         )
+    }
+
+    if (showWallpaperStudio) {
+        AlertDialog(
+            onDismissRequest = { showWallpaperStudio = false }, containerColor = panel,
+            title = { Text("PRISM ATELIER", color = fg, letterSpacing = 2.sp, fontSize = 15.sp) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Descrivi l’atmosfera: cyber-organica, pietra nuragica, aurora, metallo liquido, botanica…", color = fg, fontSize = 13.sp)
+                    OutlinedTextField(value = wallpaperPrompt, onValueChange = { wallpaperPrompt = it }, label = { Text("Idea per il tema") },
+                        placeholder = { Text("es. vetro nero, luce ciano, forme fluide") }, minLines = 2, maxLines = 4)
+                    Text("Questa build crea un concept grafico in locale e abbina palette, font e icone. Non è ancora collegata a un modello AI per generare vere immagini: non è configurato alcun provider o modello sul dispositivo.", color = muted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val prompt = wallpaperPrompt.trim().ifBlank { "Nivora Prism" }
+                    val seed = prompt.lowercase().hashCode()
+                    val swatches = listOf(0xFF91C7D9.toInt(), 0xFFC58DE0.toInt(), 0xFFE09B7D.toInt(), 0xFF9CB88B.toInt(), 0xFFB9C4D2.toInt(), 0xFFD8C49A.toInt())
+                    customAccentArgb = swatches[Math.floorMod(seed, swatches.size)]
+                    artSeed = seed; generatedArtwork = true; customWallpaperUri = null; themePreset = "Creato"
+                    dark = true; monochromeIcons = true
+                    fontChoice = when {
+                        prompt.contains("cyber", true) || prompt.contains("tech", true) || prompt.contains("futur", true) -> "Mono"
+                        prompt.contains("natur", true) || prompt.contains("botanic", true) || prompt.contains("verde", true) -> "Rounded"
+                        prompt.contains("class", true) || prompt.contains("pietra", true) || prompt.contains("nurag", true) -> "Serif"
+                        else -> "iOS Light"
+                    }
+                    prefs.edit().remove("customWallpaperUri").putInt("customAccentArgb", customAccentArgb).putInt("artSeed", seed)
+                        .putString("wallpaperPrompt", prompt).putBoolean("generatedArtwork", true).putString("themePreset", "Creato")
+                        .putBoolean("dark", true).putBoolean("monochromeIcons", true).putString("fontChoice", fontChoice).apply()
+                    showWallpaperStudio = false
+                }) { Text("GENERA CONCEPT", color = accent) }
+            },
+            dismissButton = { TextButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("USA UNA FOTO") } }
+        )
+    }
+}
+
+private fun extractWallpaperAccent(bitmap: Bitmap): Int {
+    var chosen = 0xFFB8C0C8.toInt(); var bestScore = -1f
+    val stepX = maxOf(1, bitmap.width / 48); val stepY = maxOf(1, bitmap.height / 72)
+    for (y in 0 until bitmap.height step stepY) for (x in 0 until bitmap.width step stepX) {
+        val pixel = bitmap.getPixel(x, y)
+        val r = android.graphics.Color.red(pixel) / 255f; val g = android.graphics.Color.green(pixel) / 255f; val b = android.graphics.Color.blue(pixel) / 255f
+        val maxC = maxOf(r, g, b); val minC = minOf(r, g, b); val saturation = if (maxC == 0f) 0f else (maxC - minC) / maxC
+        val luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b
+        if (luminance !in 0.12f..0.88f) continue
+        val score = saturation * 0.8f + (1f - kotlin.math.abs(luminance - 0.5f)) * 0.2f
+        if (score > bestScore) { bestScore = score; chosen = pixel or (0xFF shl 24) }
+    }
+    return chosen
+}
+
+private fun isWallpaperDark(bitmap: Bitmap): Boolean {
+    var total = 0.0; var count = 0
+    val stepX = maxOf(1, bitmap.width / 32); val stepY = maxOf(1, bitmap.height / 48)
+    for (y in 0 until bitmap.height step stepY) for (x in 0 until bitmap.width step stepX) {
+        val p = bitmap.getPixel(x, y)
+        total += (0.2126 * android.graphics.Color.red(p) + 0.7152 * android.graphics.Color.green(p) + 0.0722 * android.graphics.Color.blue(p)) / 255.0
+        count++
+    }
+    return if (count == 0) true else total / count < 0.52
+}
+
+@Composable
+private fun PrismSurface(modifier: Modifier = Modifier, tint: Color, shape: Shape, content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
+    val transition = rememberInfiniteTransition(label = "prism-flow")
+    val sweep by transition.animateFloat(initialValue = -0.65f, targetValue = 1.7f,
+        animationSpec = infiniteRepeatable(animation = tween(durationMillis = 6200, easing = LinearEasing), repeatMode = RepeatMode.Restart), label = "prism-sweep")
+    Box(modifier = modifier.clip(shape).background(tint).drawBehind {
+        val start = size.width * (sweep - 0.35f)
+        drawRect(brush = Brush.linearGradient(colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.055f), tint.copy(alpha = 0.16f), Color.Transparent),
+            start = Offset(start, 0f), end = Offset(start + size.width * 0.52f, size.height)))
+    }.border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.23f), tint.copy(alpha = 0.14f), Color.White.copy(alpha = 0.035f))), shape), content = content)
+}
+
+@Composable
+private fun GenerativeWallpaper(seed: Int, accent: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier = modifier) {
+        val random = Random(seed)
+        val secondary = when (Math.floorMod(seed / 7, 4)) { 0 -> Color(0xFF5B78A5); 1 -> Color(0xFF7A4D75); 2 -> Color(0xFF526F59); else -> Color(0xFF8C6248) }
+        drawRect(brush = Brush.linearGradient(listOf(Color(0xFF080A0E), secondary.copy(alpha = 0.72f), Color(0xFF10131A)), start = Offset(0f, 0f), end = Offset(size.width, size.height)))
+        repeat(7) { index ->
+            val center = Offset(random.nextFloat() * size.width, random.nextFloat() * size.height)
+            val radius = size.minDimension * (0.12f + random.nextFloat() * 0.25f)
+            drawCircle(brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.22f / (1 + index * 0.16f)), secondary.copy(alpha = 0.09f), Color.Transparent), center = center, radius = radius), radius = radius, center = center)
+        }
+        repeat(9) { index ->
+            val x = (index + 1) * size.width / 10f
+            drawLine(color = accent.copy(alpha = 0.10f), start = Offset(x, 0f), end = Offset(x - size.height * 0.22f, size.height), strokeWidth = 1.dp.toPx())
+        }
+        drawCircle(color = Color.White.copy(alpha = 0.035f), radius = size.minDimension * 0.36f, center = Offset(size.width * 0.80f, size.height * 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()))
     }
 }
 
@@ -322,13 +511,14 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String,
+private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconTint: Color?,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
+                update = { view -> view.setImageDrawable(app.icon); view.colorFilter = iconTint?.let { color -> PorterDuffColorFilter(color.toArgb(), PorterDuff.Mode.SRC_IN) } },
+                modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
         if (showLabel) {
@@ -341,11 +531,12 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, iconTint: Color?, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(36.dp))
+            update = { view -> view.setImageDrawable(app.icon); view.colorFilter = iconTint?.let { color -> PorterDuffColorFilter(color.toArgb(), PorterDuff.Mode.SRC_IN) } },
+            modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
             Text(app.label, color = fg, fontSize = 15.sp, maxLines = 1)
