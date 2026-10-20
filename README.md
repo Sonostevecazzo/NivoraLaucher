@@ -1,12 +1,12 @@
 # Nivora Launcher
 
-Minimal Android launcher built with Kotlin and Jetpack Compose.
+Minimal Android home launcher built with Kotlin and Jetpack Compose, aiming for the calm clarity of Niagara and Olauncher with more built-in personalization.
 
 ## Build status
 
 GitHub Actions builds a debug APK until persistent release signing is configured. Debug APKs may not be installable as updates over APKs signed with a different debug key.
 
-## Configure stable release signing
+## Configure persistent release signing
 
 Create a dedicated release keystore locally and keep a secure backup. Never commit the keystore or its passwords to this repository.
 
@@ -23,16 +23,28 @@ On macOS or Linux, encode the keystore with:
 base64 < nivora-release.jks | tr -d '\n'
 ```
 
-Copy the resulting string into the `NIVORA_KEYSTORE_BASE64` secret. Keep the original keystore and its passwords backed up securely: future APK updates must use the same signing key. Do not paste secrets into issues, chat, commits, or logs.
+Copy the result into the `NIVORA_KEYSTORE_BASE64` secret. Keep the original keystore and passwords safely backed up: future APK updates must use the same signing key. Do not paste secrets into issues, chat, commits, or logs.
 
 When all four secrets are present, GitHub Actions builds and uploads `nivora-release-apk`. If they are missing or incomplete, it builds `nivora-debug-apk` instead.
 
 ## Current features
 
-- Launch installed applications and search by app name
-- Grid/list layouts, favorites, icon sizing, and column count
-- Saved preferences for themes, colors, wallpapers, and typeface presets
+- Minimal home screen with a large live clock and date
+- App search by label or package name
+- App drawer with grid/list views and favorites-only filter
+- Long-press an app to add or remove it from favorites
+- Sort the app drawer by name, favorites, or the current fallback ordering
+- Adjustable grid density, icon size, labels, typeface, colors, and preset backgrounds
+- Preferences saved locally on the device
 
-## Not implemented yet
+## Development roadmap
 
-Native Android home-screen widgets, choosing a wallpaper from the gallery, third-party icon packs, and AI-generated themes/wallpapers.
+- [ ] Native Android home-screen widgets, including host lifecycle and widget configuration
+- [ ] Choose a wallpaper from the device gallery
+- [ ] Third-party icon pack integration
+- [ ] Gestures and richer app shortcuts
+- [ ] Optional AI-generated themes and wallpapers, with clear disclosure of any external service
+
+## Design references
+
+Nivora takes inspiration from broad interaction patterns rather than copying another app's visuals: fast one-handed access associated with Niagara, a restrained home screen like Olauncher, and opt-in personalization similar to Lawnchair. These projects are references for usability and direction, not dependencies.

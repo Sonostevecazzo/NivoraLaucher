@@ -76,29 +76,40 @@ private fun NivoraApp() {
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
+    var favoritesOnly by remember { mutableStateOf(false) }
+    var sortBy by remember { mutableStateOf(prefs.getString("sortBy", "Name") ?: "Name") }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
 
+    suspend fun loadApps(): List<LaunchableApp> = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        @Suppress("DEPRECATION")
+        pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+            .mapNotNull { info ->
+                try { LaunchableApp(info.loadLabel(pm).toString(), info.activityInfo.packageName, info.loadIcon(pm)) }
+                catch (_: Exception) { null }
+            }.distinctBy { it.packageName }
+    }
+
     LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) {
-            val pm = context.packageManager
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            @Suppress("DEPRECATION")
-            pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                .mapNotNull { info ->
-                    try { LaunchableApp(info.loadLabel(pm).toString(), info.activityInfo.packageName, info.loadIcon(pm)) }
-                    catch (_: Exception) { null }
-                }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
-        }
+        apps = loadApps().sortedBy { it.label.lowercase() }
         loading = false
     }
     LaunchedEffect(Unit) {
         while (true) { clock = LocalDateTime.now(); delay(30_000) }
     }
 
-    val visibleApps = apps.filter { it.label.contains(query.trim(), true) }
-        .sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
+    val filteredApps = apps.filter {
+        (it.label.contains(query.trim(), true) || it.packageName.contains(query.trim(), true)) &&
+            (!favoritesOnly || favorites.contains(it.packageName))
+    }
+    val visibleApps = when (sortBy) {
+        "Recenti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenByDescending { it.label.lowercase() })
+        "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
+        else -> filteredApps.sortedBy { it.label.lowercase() }
+    }
     val bg = when (wallpaper) {
         "Graphite" -> Color(0xFF202326)
         "Warm" -> Color(0xFFF0E9DE)
@@ -142,7 +153,7 @@ private fun NivoraApp() {
             Column(Modifier.fillMaxSize().background(backdrop).statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Box(Modifier.size(9.dp).clip(CircleShape).background(accent))
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
                         Text("N I V O R A", color = fg, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.weight(1f))
@@ -152,25 +163,25 @@ private fun NivoraApp() {
                 }
 
                 if (!showAllApps) {
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(28.dp))
                     Text(clock.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.ITALIAN)).uppercase(Locale.ITALIAN),
                         color = muted, fontSize = 11.sp, letterSpacing = 2.sp)
-                    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)) {
-                        Text(clock.format(DateTimeFormatter.ofPattern("HH:mm")), color = fg, fontSize = 62.sp,
+                    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 2.dp, bottom = 22.dp)) {
+                        Text(clock.format(DateTimeFormatter.ofPattern("HH:mm")), color = fg, fontSize = 66.sp,
                             fontWeight = if (fontChoice == "iOS Style" || fontChoice == "Rounded iOS") FontWeight.Normal else FontWeight.Light,
                             fontFamily = if (fontChoice == "Mono iOS") FontFamily.Monospace else selectedFont,
-                            letterSpacing = if (fontChoice == "iOS Style") (-2).sp else (-3).sp, lineHeight = 66.sp)
+                            letterSpacing = if (fontChoice == "iOS Style") (-2).sp else (-3).sp, lineHeight = 70.sp)
                         Spacer(Modifier.width(10.dp))
-                        Text("●", color = accent, fontSize = 10.sp, modifier = Modifier.padding(bottom = 14.dp))
+                        Text("●", color = accent, fontSize = 9.sp, modifier = Modifier.padding(bottom = 15.dp))
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
-                        Text("LE TUE APP", color = muted, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                        Text("PREFERITE", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.weight(1f))
-                        Text("${apps.size} APP", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
+                        Text("${favorites.size} SALVATE", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 } else {
                     Row(Modifier.padding(top = 20.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("TUTTE LE APP", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
+                        Text("APPLICAZIONI", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { grid = !grid; prefs.edit().putBoolean("grid", grid).apply() }) {
                             Icon(if (grid) Icons.Default.ViewList else Icons.Default.GridView, contentDescription = "Cambia disposizione", tint = fg)
@@ -178,22 +189,42 @@ private fun NivoraApp() {
                     }
                 }
 
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(panel).padding(horizontal = 14.dp, vertical = 13.dp),
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(horizontal = 14.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    BasicTextField(value = query, onValueChange = { query = it }, singleLine = true,
-                        textStyle = TextStyle(color = fg, fontSize = 15.sp),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(accent),
-                        modifier = Modifier.weight(1f),
+                    BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
+                        singleLine = true, textStyle = TextStyle(color = fg, fontSize = 15.sp),
+                        cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
-                            if (query.isEmpty()) Text("Cerca un'app", color = muted, fontSize = 15.sp)
+                            if (query.isEmpty()) Text("Cerca un'app o un pacchetto", color = muted, fontSize = 15.sp)
                             inner()
                         })
                     if (query.isNotEmpty()) Text("×", color = muted, fontSize = 22.sp,
                         modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
+
+                if (showAllApps) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text("Tutte") })
+                        FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = true }, label = { Text("Preferite") })
+                        Spacer(Modifier.weight(1f))
+                        var sortExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { sortExpanded = true }) { Text(sortBy.uppercase(), fontSize = 10.sp, color = accent) }
+                            DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
+                                listOf("Nome", "Preferiti", "Recenti").forEach { choice ->
+                                    DropdownMenuItem(text = { Text(choice) }, onClick = {
+                                        sortBy = choice
+                                        prefs.edit().putString("sortBy", choice).apply()
+                                        sortExpanded = false
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if (loading) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -201,7 +232,10 @@ private fun NivoraApp() {
                     }
                 } else if (visibleApps.isEmpty()) {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("NESSUNA APP TROVATA", color = muted, fontSize = 11.sp, letterSpacing = 1.sp)
+                        Text(if (favoritesOnly) "NESSUNA APP PREFERITA" else "NESSUNA APP TROVATA", color = muted, fontSize = 11.sp, letterSpacing = 1.sp)
+                        if (favoritesOnly) {
+                            TextButton(onClick = { showAllApps = true; favoritesOnly = false }) { Text("MOSTRA TUTTE", color = accent) }
+                        }
                     }
                 } else if (grid) {
                     LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.weight(1f),
@@ -210,8 +244,10 @@ private fun NivoraApp() {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
                             AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice,
                                 onClick = { launchApp(context, app) },
-                                onLongClick = { favorites = toggleFavorite(favorites, app.packageName, prefs); Toast.makeText(context,
-                                    if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show() })
+                                onLongClick = {
+                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                })
                         }
                     }
                 } else {
@@ -219,14 +255,17 @@ private fun NivoraApp() {
                         items(visibleApps, key = { it.packageName }) { app ->
                             AppListRow(app, favorites.contains(app.packageName), fg, muted,
                                 onClick = { launchApp(context, app) },
-                                onLongClick = { favorites = toggleFavorite(favorites, app.packageName, prefs) })
+                                onLongClick = {
+                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                })
                         }
                     }
                 }
 
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BottomAction("HOME", !showAllApps, accent, fg, panel) { showAllApps = false; query = "" }
-                    BottomAction("APPLICAZIONI", showAllApps, accent, fg, panel) { showAllApps = true; query = "" }
+                    BottomAction("HOME", !showAllApps, accent, fg, panel) { showAllApps = false; query = ""; favoritesOnly = true }
+                    BottomAction("APP", showAllApps, accent, fg, panel) { showAllApps = true; query = ""; favoritesOnly = false }
                 }
             }
         }
@@ -248,7 +287,7 @@ private fun NivoraApp() {
                     SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
                     SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                     SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
-                    Text("Le modifiche vengono salvate automaticamente. Contrasto aumentato per la leggibilità. La generazione IA di sfondi e icone richiede un servizio dedicato; non è ancora attiva. Widget nativi sono in sviluppo.",
+                    Text("Ispirazione: navigazione rapida di Niagara, essenzialità di Olauncher e personalizzazione di Lawnchair. I widget Android nativi, gli sfondi dalla galleria e i pacchetti icone restano funzioni da completare.",
                         color = muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             },
@@ -283,7 +322,7 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
                 update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
-            if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(7.dp).clip(CircleShape).background(Color(0xFFD71920)))
+            if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
         if (showLabel) {
             Spacer(Modifier.height(7.dp))
@@ -301,7 +340,10 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
             update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
-        Text(app.label, color = fg, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(app.label, color = fg, fontSize = 15.sp, maxLines = 1)
+            Text(app.packageName, color = muted, fontSize = 10.sp, maxLines = 1)
+        }
         if (favorite) Text("●", color = Color(0xFFD71920), fontSize = 8.sp)
         else Text("↗", color = muted, fontSize = 14.sp)
     }
@@ -310,7 +352,7 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BottomAction(label: String, selected: Boolean, accent: Color, fg: Color, panel: Color, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth(0.48f).clip(RoundedCornerShape(12.dp)).background(if (selected) panel else Color.Transparent)
+    Row(Modifier.fillMaxWidth(0.48f).clip(RoundedCornerShape(14.dp)).background(if (selected) panel else Color.Transparent)
         .combinedClickable(onClick = onClick, onLongClick = {}).padding(vertical = 13.dp), horizontalArrangement = Arrangement.Center) {
         Text(label, color = if (selected) accent else fg, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
     }
