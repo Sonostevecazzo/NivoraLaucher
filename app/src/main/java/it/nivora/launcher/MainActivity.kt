@@ -129,10 +129,12 @@ private fun NivoraApp() {
             try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
             customWallpaperUri = uri.toString()
             generatedArtwork = false
+            wallpaperPrompt = ""
             themePreset = "Creato"
             monochromeIcons = true
-            prefs.edit().putString("customWallpaperUri", uri.toString()).putBoolean("generatedArtwork", false)
-                .putString("themePreset", "Creato").putBoolean("monochromeIcons", true).apply()
+            prefs.edit().putString("customWallpaperUri", uri.toString()).putString("wallpaperPrompt", "")
+                .putBoolean("generatedArtwork", false).putString("themePreset", "Creato")
+                .putBoolean("monochromeIcons", true).apply()
             showWallpaperStudio = false
         }
     }
@@ -142,15 +144,15 @@ private fun NivoraApp() {
         if (savedUri.isNullOrBlank()) {
             customWallpaperBitmap = null
         } else {
-            val bitmap = withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(savedUri))?.use { stream ->
-                        BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = 4 })
-                    }
-                }.getOrNull()
-            }
+            val bitmap = withContext(Dispatchers.IO) { decodeSampledWallpaper(context, Uri.parse(savedUri)) }
             customWallpaperBitmap = bitmap
-            if (bitmap != null && themePreset == "Creato") {
+            if (bitmap == null) {
+                // URI grants can be lost after a restore; fall back cleanly instead of showing a blank custom theme.
+                customWallpaperUri = null
+                val fallbackTheme = if (themePreset == "Creato" && !generatedArtwork) "Mono Glass" else themePreset
+                themePreset = fallbackTheme
+                prefs.edit().remove("customWallpaperUri").putString("themePreset", fallbackTheme).apply()
+            } else if (themePreset == "Creato") {
                 val sampledAccent = extractWallpaperAccent(bitmap)
                 val sampledDark = isWallpaperDark(bitmap)
                 customAccentArgb = sampledAccent
@@ -175,7 +177,21 @@ private fun NivoraApp() {
     }
 
     LaunchedEffect(Unit) {
-        apps = loadApps().sortedBy { it.label.lowercase() }
+        val loadedApps = loadApps().sortedBy { it.label.lowercase() }
+        apps = loadedApps
+        if (loadedApps.isNotEmpty()) {
+            val installedPackages = loadedApps.map { it.packageName }.toSet()
+            val cleanedFavorites = favorites.intersect(installedPackages)
+            if (cleanedFavorites != favorites) {
+                favorites = cleanedFavorites
+                prefs.edit().putStringSet("favorites", cleanedFavorites).apply()
+            }
+            val cleanedRecents = recentApps.filter { it in installedPackages }.distinct().take(30)
+            if (cleanedRecents != recentApps) {
+                recentApps = cleanedRecents
+                prefs.edit().putString("recentApps", cleanedRecents.joinToString("|")).apply()
+            }
+        }
         loading = false
     }
     LaunchedEffect(Unit) {
@@ -394,8 +410,15 @@ private fun NivoraApp() {
                     SettingSwitch("Icone monocromatiche", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
                     SettingChoice("Tema preimpostato", themePreset, "Mono Glass", "Frost", "Ember", "Moss", "Violet", "Creato", "Personalizzato") {
                         themePreset = it
-                        if (it != "Creato") generatedArtwork = false
-                        val presetFont = when (it) { "Mono Glass" -> "Mono"; "Frost" -> "iOS Light"; "Ember" -> "Serif"; "Moss" -> "Rounded"; "Violet" -> "Rounded iOS"; "Creato" -> "iOS Light"; else -> fontChoice }
+                        val presetFont = when (it) {
+                            "Mono Glass" -> "Mono"
+                            "Frost" -> "iOS Light"
+                            "Ember" -> "Serif"
+                            "Moss" -> "Rounded"
+                            "Violet" -> "Rounded iOS"
+                            "Creato" -> guessWallpaperFont(customAccentArgb, dark, wallpaperPrompt)
+                            else -> fontChoice
+                        }
                         fontChoice = presetFont
                         if (it != "Personalizzato") monochromeIcons = true
                         prefs.edit().putString("themePreset", it).putString("fontChoice", fontChoice)
@@ -462,6 +485,20 @@ private fun NivoraApp() {
         )
     }
 }
+
+private fun decodeSampledWallpaper(context: android.content.Context, uri: Uri, maxDimension: Int = 2048): Bitmap? =
+    runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
+
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > maxDimension || bounds.outHeight / sampleSize > maxDimension) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        context.contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream, null, options) }
+    }.getOrNull()
 
 private fun extractWallpaperAccent(bitmap: Bitmap): Int {
     var chosen = 0xFFB8C0C8.toInt(); var bestScore = -1f
