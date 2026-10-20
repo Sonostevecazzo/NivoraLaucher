@@ -151,11 +151,13 @@ private fun NivoraApp() {
             }
             customWallpaperBitmap = bitmap
             if (bitmap != null && themePreset == "Creato") {
-                customAccentArgb = extractWallpaperAccent(bitmap)
-                dark = isWallpaperDark(bitmap)
-                fontChoice = "iOS Light"
+                val sampledAccent = extractWallpaperAccent(bitmap)
+                val sampledDark = isWallpaperDark(bitmap)
+                customAccentArgb = sampledAccent
+                dark = sampledDark
+                fontChoice = guessWallpaperFont(sampledAccent, sampledDark, wallpaperPrompt)
                 monochromeIcons = true
-                prefs.edit().putInt("customAccentArgb", customAccentArgb).putBoolean("dark", dark)
+                prefs.edit().putInt("customAccentArgb", sampledAccent).putBoolean("dark", sampledDark)
                     .putString("fontChoice", fontChoice).putBoolean("monochromeIcons", true).apply()
             }
         }
@@ -395,7 +397,7 @@ private fun NivoraApp() {
                         if (it != "Creato") generatedArtwork = false
                         val presetFont = when (it) { "Mono Glass" -> "Mono"; "Frost" -> "iOS Light"; "Ember" -> "Serif"; "Moss" -> "Rounded"; "Violet" -> "Rounded iOS"; "Creato" -> "iOS Light"; else -> fontChoice }
                         fontChoice = presetFont
-                        if (it == "Mono Glass" || it == "Creato") monochromeIcons = true
+                        if (it != "Personalizzato") monochromeIcons = true
                         prefs.edit().putString("themePreset", it).putString("fontChoice", fontChoice)
                             .putBoolean("monochromeIcons", monochromeIcons).putBoolean("generatedArtwork", generatedArtwork).apply()
                     }
@@ -449,12 +451,7 @@ private fun NivoraApp() {
                     customAccentArgb = swatches[Math.floorMod(seed, swatches.size)]
                     artSeed = seed; generatedArtwork = true; customWallpaperUri = null; themePreset = "Creato"
                     dark = true; monochromeIcons = true
-                    fontChoice = when {
-                        prompt.contains("cyber", true) || prompt.contains("tech", true) || prompt.contains("futur", true) -> "Mono"
-                        prompt.contains("natur", true) || prompt.contains("botanic", true) || prompt.contains("verde", true) -> "Rounded"
-                        prompt.contains("class", true) || prompt.contains("pietra", true) || prompt.contains("nurag", true) -> "Serif"
-                        else -> "iOS Light"
-                    }
+                    fontChoice = guessWallpaperFont(customAccentArgb, dark, prompt)
                     prefs.edit().remove("customWallpaperUri").putInt("customAccentArgb", customAccentArgb).putInt("artSeed", seed)
                         .putString("wallpaperPrompt", prompt).putBoolean("generatedArtwork", true).putString("themePreset", "Creato")
                         .putBoolean("dark", true).putBoolean("monochromeIcons", true).putString("fontChoice", fontChoice).apply()
@@ -479,6 +476,23 @@ private fun extractWallpaperAccent(bitmap: Bitmap): Int {
         if (score > bestScore) { bestScore = score; chosen = pixel or (0xFF shl 24) }
     }
     return chosen
+}
+
+private fun guessWallpaperFont(accentArgb: Int, dark: Boolean, prompt: String): String {
+    val description = prompt.lowercase(Locale.ROOT)
+    if (listOf("cyber", "tech", "futur", "sci-fi", "metallico", "elettrico").any { it in description }) return "Mono"
+    if (listOf("natur", "botanic", "verde", "flore", "organico", "bosco").any { it in description }) return "Rounded"
+    if (listOf("class", "pietra", "nurag", "marmo", "elegan", "antico").any { it in description }) return "Serif"
+
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(accentArgb, hsv)
+    return when {
+        hsv[1] < 0.18f && dark -> "Mono"
+        hsv[0] in 18f..55f -> "Serif"
+        hsv[0] in 70f..165f -> "Rounded"
+        hsv[0] in 180f..250f -> "Mono"
+        else -> "iOS Light"
+    }
 }
 
 private fun isWallpaperDark(bitmap: Bitmap): Boolean {
