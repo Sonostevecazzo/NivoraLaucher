@@ -1,4 +1,4 @@
-name: Android APK build
+name: Nivora Android CI
 
 on:
   push:
@@ -61,7 +61,7 @@ jobs:
           if-no-files-found: error
 
       - name: Run JVM game logic tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug
 
       - name: Build debug APK (until release signing is configured)
         if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
