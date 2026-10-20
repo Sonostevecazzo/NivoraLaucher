@@ -2,6 +2,23 @@
 
 Nivora is a minimalist Android launcher built with Kotlin and Jetpack Compose. Its current direction combines restrained monochrome design, **Prism Flow** animated glass surfaces, coordinated themes, and an offline mini-arcade.
 
+## Product rule: launcher first
+
+Nivora is designed to be the device's default Android Home app. Every feature must protect the core launcher loop: show a dependable Home screen, discover and open installed launchable apps quickly, keep favorites and recents current, and make Back/Home behavior predictable. Themes, visual effects, wallpaper concepts, and games are secondary and must never block app access.
+
+## Core launcher acceptance checklist
+
+- Android exposes Nivora as a Home app through the `MAIN`, `HOME`, and `DEFAULT` intent categories.
+- A first-time user can open the full app drawer immediately, even before saving favorites.
+- Search covers the whole launcher catalog by app label or package name, independently of the favorites filter.
+- The app catalog refreshes when Nivora resumes so installed or removed apps do not remain stale.
+- Back dismisses the topmost dialog first, then collapses search or the app drawer; when no overlay is open, Android can leave Home as usual.
+- Tapping an app opens it; long-press toggles favorites; launched apps update the recent-app order.
+- User preferences persist across restarts, and inaccessible wallpaper references fall back without a blank Home screen.
+- Prompt-based art is described honestly as local procedural artwork unless a real image-generation model is integrated and tested.
+- Before release, test Home selection, gesture navigation, recent/favorite updates, package visibility, app install/removal, screen sizes, and accessibility on physical devices.
+
+
 ## Current features
 
 - Minimal home screen with live clock/date, favorites-first behavior, compact app search, and optional Nivora wordmark.
