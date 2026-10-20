@@ -39,7 +39,7 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.LinearEasing
@@ -275,7 +275,7 @@ private fun NivoraApp() {
                         Text("APPLICAZIONI", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = { grid = !grid; prefs.edit().putBoolean("grid", grid).apply() }) {
-                            Icon(if (grid) Icons.Default.ViewList else Icons.Default.GridView, contentDescription = "Cambia disposizione", tint = fg)
+                            Icon(if (grid) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, contentDescription = "Cambia disposizione", tint = fg)
                         }
                     }
                 }
