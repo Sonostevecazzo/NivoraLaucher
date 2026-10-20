@@ -117,8 +117,9 @@ private fun NivoraApp() {
     var showWallpaperStudio by remember { mutableStateOf(false) }
     var showArcade by remember { mutableStateOf(false) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
-    var favoritesOnly by remember { mutableStateOf(false) }
-    var sortBy by remember { mutableStateOf(prefs.getString("sortBy", "Name") ?: "Name") }
+    var favoritesOnly by remember { mutableStateOf(true) }
+    var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
+    var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
@@ -184,7 +185,7 @@ private fun NivoraApp() {
             (!favoritesOnly || favorites.contains(it.packageName))
     }
     val visibleApps = when (sortBy) {
-        "Recenti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenByDescending { it.label.lowercase() })
+        "Recenti" -> filteredApps.sortedWith(compareBy<LaunchableApp> { val index = recentApps.indexOf(it.packageName); if (index < 0) Int.MAX_VALUE else index }.thenBy { it.label.lowercase() })
         "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
         else -> filteredApps.sortedBy { it.label.lowercase() }
     }
@@ -407,7 +408,7 @@ private fun NivoraApp() {
     if (showArcade) {
         Dialog(onDismissRequest = { showArcade = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Surface(modifier = Modifier.fillMaxWidth(0.97f).fillMaxHeight(0.94f).clip(RoundedCornerShape(28.dp)), color = bg) {
-                OfflineArcade(accent = accent, fg = fg, panel = panel, onClose = { showArcade = false })
+                OfflineArcade(accent = accent, fg = fg, panel = panel, dark = dark, monochrome = themePreset == "Mono Glass", onClose = { showArcade = false })
             }
         }
     }
