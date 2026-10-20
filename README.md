@@ -20,6 +20,9 @@ Nivora is a minimalist Android launcher built with Kotlin and Jetpack Compose. I
 - Android Gradle Plugin: 8.10.1
 - Gradle: 8.11.1
 - Kotlin: 2.1.10
+- AndroidX Activity Compose: 1.13.0
+- AndroidX Lifecycle Runtime: 2.10.0
+- AndroidX Graphics Path: 1.1.0
 - JDK: 17
 - `minSdk = 26`, `compileSdk = 36`, `targetSdk = 36`
 - App version: 0.4.0 (versionCode 4)
@@ -30,14 +33,14 @@ Run the JVM game-logic tests and debug build:
 gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
 ```
 
-GitHub Actions runs unit tests and builds a debug APK. To produce a **signed Play Store Android App Bundle (.aab)**, configure these repository Actions secrets: `NIVORA_KEYSTORE_BASE64`, `NIVORA_STORE_PASSWORD`, `NIVORA_KEY_ALIAS`, and `NIVORA_KEY_PASSWORD`. Keep the release keystore and passwords private and backed up: all future updates must use the same signing identity.
+GitHub Actions runs JVM game-logic tests, Android lint, and—after build completion—checks APK ZIP alignment and native ELF LOAD alignment for 16 KB page-size devices. It builds a debug APK when release signing is not configured. To produce a **signed Play Store Android App Bundle (.aab)**, configure these repository Actions secrets: `NIVORA_KEYSTORE_BASE64`, `NIVORA_STORE_PASSWORD`, `NIVORA_KEY_ALIAS`, and `NIVORA_KEY_PASSWORD`. Keep the release keystore and passwords private and backed up: all future updates must use the same signing identity.
 
 ## Google Play release checklist
 
 The code and debug build are not, by themselves, a Play Store release. Before submitting:
 
 - Configure a stable signing key and confirm the signed AAB workflow artifact.
-- Test installation, launcher selection, icon tinting, wallpaper URI persistence, light/dark themes, and both games on physical devices and supported Android versions, including Android 16.
+- Test installation, launcher selection, icon tinting, wallpaper URI persistence, light/dark themes, and both games on physical devices and supported Android versions, including Android 16. CI checks packaging/ELF alignment, but an actual 16 KB emulator/device smoke test is still required.
 - Prepare Play Console listing material: store listing icon (512×512), feature graphic, phone screenshots, descriptions, category/contact details, and a public privacy-policy URL.
 - Complete Play Console App content, Data safety, and content-rating declarations accurately.
 - Review accessibility, edge cases, lifecycle/background behavior and performance on a range of screen sizes.
