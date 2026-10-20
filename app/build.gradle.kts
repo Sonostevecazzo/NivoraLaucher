@@ -52,12 +52,14 @@ android {
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.02.00"))
-    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    // Newer native graphics-path binary helps keep bundled native code current for 16 KB page-size devices.
+    implementation("androidx.graphics:graphics-path:1.1.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
 }
