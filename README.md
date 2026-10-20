@@ -29,12 +29,16 @@ When all four secrets are present, GitHub Actions builds and uploads `nivora-rel
 
 ## Current features
 
-- Minimal home screen with a large live clock and date
+- Minimal home screen with a large live clock, date, and optional Nivora wordmark
+- A quieter, compact Home search field that expands into the app drawer when typing
+- Eight one-tap visual presets: Glass Mono, Obsidian, Arctic, Graphite, Sand, Sage, Plum, and Blue Pulse
+- Optional translucent glass panels and subtle reflective borders
+- Optional grayscale app icons for a cohesive monochrome look
 - App search by label or package name
 - App drawer with grid/list views and favorites-only filter
 - Long-press an app to add or remove it from favorites
 - Sort the app drawer by name, favorites, or the current fallback ordering
-- Adjustable grid density, icon size, labels, typeface, colors, and preset backgrounds
+- Adjustable grid density, icon size, labels, typeface, glass effect, monochrome icons, and preset themes
 - Preferences saved locally on the device
 
 ## Development roadmap
