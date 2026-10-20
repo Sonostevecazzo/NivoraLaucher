@@ -17,13 +17,13 @@ val hasReleaseSigning = listOf(
 
 android {
     namespace = "it.nivora.launcher"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         applicationId = "it.nivora.launcher"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        targetSdk = 36
+        versionCode = 4
+        versionName = "0.4.0"
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -59,4 +59,5 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    testImplementation("junit:junit:4.13.2")
 }
