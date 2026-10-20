@@ -46,7 +46,7 @@ The code and debug build are not, by themselves, a Play Store release. Before su
 - Review accessibility, edge cases, lifecycle/background behavior and performance on a range of screen sizes.
 - Do not advertise real AI-generated images until an actual on-device model or disclosed image-generation service has been integrated and tested.
 
-Privacy policy source: [PRIVACY_POLICY.md](PRIVACY_POLICY.md). Once this branch is merged, the policy can be linked from the Play listing using the repository's public URL.
+Privacy policy source: [PRIVACY_POLICY.md](PRIVACY_POLICY.md). Public branch URL for review: https://github.com/Sonostevecazzo/NivoraLaucher/blob/feat/glass-monochrome-themes/PRIVACY_POLICY.md. Store listing draft: [store/PLAY_STORE_LISTING_IT.md](store/PLAY_STORE_LISTING_IT.md). CI renders the icon and feature graphic from [store/assets](store/assets); real device screenshots and a developer contact email still need to be supplied before submission. See [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md) for secure signing setup.
 
 ## Still not implemented
 
