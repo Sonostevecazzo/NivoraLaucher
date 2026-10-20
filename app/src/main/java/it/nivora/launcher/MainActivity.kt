@@ -544,11 +544,44 @@ private data class BlockState(
     val over: Boolean = false
 )
 
+private data class ArcadePalette(
+    val accent: Color,
+    val food: Color,
+    val board: Color,
+    val grid: Color,
+    val blocks: List<Color>
+)
+
+private fun createArcadePalette(accent: Color, foreground: Color, dark: Boolean, monochrome: Boolean): ArcadePalette {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(accent.toArgb(), hsv)
+    fun tone(shift: Float, value: Float): Color {
+        val hue = (hsv[0] + shift + 360f) % 360f
+        val saturation = if (monochrome) 0.025f else hsv[1].coerceAtLeast(0.42f).coerceAtMost(0.92f)
+        return Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, saturation, value)))
+    }
+    val blockColors = listOf(Color.Transparent) + if (monochrome) {
+        listOf(Color(0xFFE7EAED), Color(0xFFD1D6DB), Color(0xFFBCC3CA), Color(0xFFA5AEB7),
+            Color(0xFF909AA4), Color(0xFF7A858F), Color(0xFFF5F6F7))
+    } else {
+        listOf(-34f, 0f, 34f, 68f, 126f, 174f, 218f).map { tone(it, if (dark) 0.94f else 0.48f) }
+    }
+    return ArcadePalette(
+        accent = accent,
+        food = if (monochrome) foreground else tone(155f, if (dark) 0.98f else 0.38f),
+        board = if (dark) Color(0xFF080B0F) else Color(0xFFF7F9FB),
+        grid = foreground.copy(alpha = if (dark) 0.085f else 0.11f),
+        blocks = blockColors
+    )
+}
+
 @Composable
-private fun OfflineArcade(accent: Color, fg: Color, panel: Color, onClose: () -> Unit) {
+private fun OfflineArcade(accent: Color, fg: Color, panel: Color, dark: Boolean, monochrome: Boolean, onClose: () -> Unit) {
     var selected by remember { mutableStateOf(ArcadeGame.MENU) }
+    val gamePalette = remember(accent, fg, dark, monochrome) { createArcadePalette(accent, fg, dark, monochrome) }
+    val arcadeBackdrop = if (dark) listOf(panel.copy(alpha = 0.7f), Color(0xFF0B0D10)) else listOf(panel.copy(alpha = 0.72f), Color(0xFFF5F7F8))
     Column(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(panel.copy(alpha = 0.7f), Color(0xFF0B0D10)))).padding(18.dp),
+        Modifier.fillMaxSize().background(Brush.verticalGradient(arcadeBackdrop)).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -590,14 +623,14 @@ private fun OfflineArcade(accent: Color, fg: Color, panel: Color, onClose: () ->
                 Spacer(Modifier.weight(1f))
                 Text("PRISM ARCADE  ·  OFFLINE  ·  NESSUN ACCOUNT", color = fg.copy(alpha = 0.42f), fontSize = 9.sp, letterSpacing = 1.5.sp)
             }
-            ArcadeGame.SNAKE -> SnakeGame(accent, fg, panel, Modifier.weight(1f))
-            ArcadeGame.BLOCKFALL -> BlockfallGame(accent, fg, panel, Modifier.weight(1f))
+            ArcadeGame.SNAKE -> SnakeGame(gamePalette, fg, Modifier.weight(1f))
+            ArcadeGame.BLOCKFALL -> BlockfallGame(gamePalette, fg, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun SnakeGame(accent: Color, fg: Color, panel: Color, modifier: Modifier = Modifier) {
+private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Modifier) {
     var state by remember { mutableStateOf(SnakeState()) }
     var direction by remember { mutableStateOf(SnakeDirection.RIGHT) }
     var running by remember { mutableStateOf(false) }
@@ -613,21 +646,21 @@ private fun SnakeGame(accent: Color, fg: Color, panel: Color, modifier: Modifier
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("PUNTEGGIO", color = fg.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.5.sp)
-            Text(state.score.toString(), color = accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
+            Text(state.score.toString(), color = palette.accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
         }
-        TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = accent) }
+        TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = palette.accent) }
         TextButton(onClick = { state = SnakeState(); direction = SnakeDirection.RIGHT; running = false }) { Text("RESET", color = fg) }
     }
-    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF0D1115))) {
+    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)) {
         val cell = minOf(size.width / 16f, size.height / 22f)
         val left = (size.width - cell * 16) / 2f
         val top = (size.height - cell * 22) / 2f
-        for (x in 0..16) drawLine(Color.White.copy(alpha = 0.035f), Offset(left + x * cell, top), Offset(left + x * cell, top + 22 * cell), 1.dp.toPx())
-        for (y in 0..22) drawLine(Color.White.copy(alpha = 0.035f), Offset(left, top + y * cell), Offset(left + 16 * cell, top + y * cell), 1.dp.toPx())
+        for (x in 0..16) drawLine(palette.grid, Offset(left + x * cell, top), Offset(left + x * cell, top + 22 * cell), 1.dp.toPx())
+        for (y in 0..22) drawLine(palette.grid, Offset(left, top + y * cell), Offset(left + 16 * cell, top + y * cell), 1.dp.toPx())
         val food = state.food
-        drawCircle(color = Color(0xFFFFC875), radius = cell * 0.34f, center = Offset(left + (food.first + 0.5f) * cell, top + (food.second + 0.5f) * cell))
+        drawCircle(color = palette.food, radius = cell * 0.34f, center = Offset(left + (food.first + 0.5f) * cell, top + (food.second + 0.5f) * cell))
         state.body.forEachIndexed { index, p ->
-            drawRoundRect(color = if (index == 0) accent else accent.copy(alpha = 0.68f - (index.coerceAtMost(20) * 0.015f)),
+            drawRoundRect(color = if (index == 0) palette.accent else palette.accent.copy(alpha = 0.68f - (index.coerceAtMost(20) * 0.015f)),
                 topLeft = Offset(left + p.first * cell + cell * 0.07f, top + p.second * cell + cell * 0.07f),
                 size = androidx.compose.ui.geometry.Size(cell * 0.86f, cell * 0.86f),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(cell * 0.2f))
@@ -636,11 +669,11 @@ private fun SnakeGame(accent: Color, fg: Color, panel: Color, modifier: Modifier
     }
     if (state.over) Text("Partita terminata — premi RESET per riprovare", color = fg.copy(alpha = 0.7f), fontSize = 12.sp)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedButton(onClick = { if (direction != SnakeDirection.DOWN) direction = SnakeDirection.UP }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 5.dp)) { Text("↑", color = accent, fontSize = 20.sp) }
+        OutlinedButton(onClick = { if (direction != SnakeDirection.DOWN) direction = SnakeDirection.UP }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 5.dp)) { Text("↑", color = palette.accent, fontSize = 20.sp) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { if (direction != SnakeDirection.RIGHT) direction = SnakeDirection.LEFT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("←", color = accent, fontSize = 20.sp) }
-            OutlinedButton(onClick = { if (direction != SnakeDirection.UP) direction = SnakeDirection.DOWN }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("↓", color = accent, fontSize = 20.sp) }
-            OutlinedButton(onClick = { if (direction != SnakeDirection.LEFT) direction = SnakeDirection.RIGHT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("→", color = accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { if (direction != SnakeDirection.RIGHT) direction = SnakeDirection.LEFT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("←", color = palette.accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { if (direction != SnakeDirection.UP) direction = SnakeDirection.DOWN }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("↓", color = palette.accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { if (direction != SnakeDirection.LEFT) direction = SnakeDirection.RIGHT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("→", color = palette.accent, fontSize = 20.sp) }
         }
     }
     Text("Comandi a schermo · nessuna connessione richiesta", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
@@ -669,8 +702,6 @@ private val BLOCK_SHAPES: Map<Int, List<Pair<Int, Int>>> = mapOf(
     6 to listOf(0 to 0, 0 to 1, 1 to 1, 2 to 1),
     7 to listOf(2 to 0, 0 to 1, 1 to 1, 2 to 1)
 )
-private val BLOCK_COLORS = listOf(Color.Transparent, Color(0xFF8ED8E8), Color(0xFFE2D68A), Color(0xFFBA9BE8), Color(0xFF94D0A5), Color(0xFFE49DAD), Color(0xFFE8B37F), Color(0xFF8CAFF0))
-
 private fun blockCells(type: Int, rotation: Int): List<Pair<Int, Int>> {
     var cells = BLOCK_SHAPES[type] ?: BLOCK_SHAPES.getValue(1)
     repeat(Math.floorMod(rotation, 4)) { cells = cells.map { (x, y) -> (3 - y) to x } }
@@ -715,7 +746,7 @@ private fun lockBlock(state: BlockState): BlockState {
 }
 
 @Composable
-private fun BlockfallGame(accent: Color, fg: Color, panel: Color, modifier: Modifier = Modifier) {
+private fun BlockfallGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Modifier) {
     var state by remember { mutableStateOf(BlockState()) }
     var running by remember { mutableStateOf(false) }
     LaunchedEffect(running, state.over) {
@@ -730,35 +761,35 @@ private fun BlockfallGame(accent: Color, fg: Color, panel: Color, modifier: Modi
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text("PUNTEGGIO", color = fg.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.5.sp)
-            Text(state.score.toString(), color = accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
+            Text(state.score.toString(), color = palette.accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
         }
-        TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = accent) }
+        TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = palette.accent) }
         TextButton(onClick = { state = BlockState(); running = false }) { Text("RESET", color = fg) }
     }
-    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFF0D1115))) {
+    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)) {
         val cell = minOf(size.width / 10f, size.height / 18f)
         val left = (size.width - cell * 10) / 2f
         val top = (size.height - cell * 18) / 2f
         for (y in 0 until 18) for (x in 0 until 10) {
             val v = state.board[y][x]
-            if (v != 0) drawRoundRect(BLOCK_COLORS[v], Offset(left + x * cell + 1, top + y * cell + 1),
+            if (v != 0) drawRoundRect(palette.blocks[v], Offset(left + x * cell + 1, top + y * cell + 1),
                 androidx.compose.ui.geometry.Size(cell - 2, cell - 2), androidx.compose.ui.geometry.CornerRadius(cell * 0.12f))
         }
         blockCells(state.pieceType, state.rotation).forEach { (dx, dy) ->
             val x = state.pieceX + dx; val y = state.pieceY + dy
-            if (x in 0 until 10 && y in 0 until 18) drawRoundRect(BLOCK_COLORS[state.pieceType], Offset(left + x * cell + 1, top + y * cell + 1),
+            if (x in 0 until 10 && y in 0 until 18) drawRoundRect(palette.blocks[state.pieceType], Offset(left + x * cell + 1, top + y * cell + 1),
                 androidx.compose.ui.geometry.Size(cell - 2, cell - 2), androidx.compose.ui.geometry.CornerRadius(cell * 0.12f))
         }
-        for (x in 0..10) drawLine(Color.White.copy(alpha = 0.045f), Offset(left + x * cell, top), Offset(left + x * cell, top + 18 * cell), 1.dp.toPx())
-        for (y in 0..18) drawLine(Color.White.copy(alpha = 0.045f), Offset(left, top + y * cell), Offset(left + 10 * cell, top + y * cell), 1.dp.toPx())
+        for (x in 0..10) drawLine(palette.grid, Offset(left + x * cell, top), Offset(left + x * cell, top + 18 * cell), 1.dp.toPx())
+        for (y in 0..18) drawLine(palette.grid, Offset(left, top + y * cell), Offset(left + 10 * cell, top + y * cell), 1.dp.toPx())
         if (state.over) drawRect(Color.Black.copy(alpha = 0.55f), Offset(left, top), androidx.compose.ui.geometry.Size(10 * cell, 18 * cell))
     }
     if (state.over) Text("Blocco impilato — RESET per una nuova partita", color = fg.copy(alpha = 0.7f), fontSize = 12.sp)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        OutlinedButton(onClick = { state = moveBlock(state, dx = -1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("←", color = accent, fontSize = 22.sp) }
-        OutlinedButton(onClick = { state = moveBlock(state, rotate = true) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↻", color = accent, fontSize = 22.sp) }
-        OutlinedButton(onClick = { state = moveBlock(state, dx = 1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("→", color = accent, fontSize = 22.sp) }
-        OutlinedButton(onClick = { state = moveBlock(state, hardDrop = true); if (state.over) running = false }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↓↓", color = accent, fontSize = 18.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, dx = -1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("←", color = palette.accent, fontSize = 22.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, rotate = true) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↻", color = palette.accent, fontSize = 22.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, dx = 1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("→", color = palette.accent, fontSize = 22.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, hardDrop = true); if (state.over) running = false }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↓↓", color = palette.accent, fontSize = 18.sp) }
     }
     Text("Sinistra · ruota · destra · caduta rapida", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
 }
