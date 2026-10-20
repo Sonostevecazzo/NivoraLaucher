@@ -14,6 +14,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -91,6 +92,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun NivoraApp() {
     val context = LocalContext.current
+    BackHandler(
+        enabled = showSettings || showWallpaperStudio || showArcade || searchExpanded || showAllApps
+    ) {
+        when {
+            showWallpaperStudio -> showWallpaperStudio = false
+            showArcade -> showArcade = false
+            showSettings -> showSettings = false
+            searchExpanded -> { searchExpanded = false; query = "" }
+            showAllApps -> { showAllApps = false; query = ""; favoritesOnly = true }
+        }
+    }
     val prefs = remember { context.getSharedPreferences("nivora_preferences", 0) }
     var dark by remember { mutableStateOf(prefs.getBoolean("dark", true)) }
     var grid by remember { mutableStateOf(prefs.getBoolean("grid", true)) }
@@ -207,8 +219,28 @@ private fun NivoraApp() {
         "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
         else -> filteredApps.sortedBy { it.label.lowercase() }
     }
-    val presetAccent = when (themePreset) { "Frost" -> Color(0xFF9FC8D8); "Ember" -> Color(0xFFD99A83); "Moss" -> Color(0xFF9EAF96); "Violet" -> Color(0xFFB5A5D5); "Creato" -> Color(customAccentArgb); else -> Color(0xFFB8C0C8) }
-    val bg = when (themePreset) { "Mono Glass" -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2); "Frost" -> if (dark) Color(0xFF111A20) else Color(0xFFEAF3F6); "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8); "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB); "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5); "Creato" -> if (dark) Color(0xFF111316) else Color(0xFFF0F1F1); else -> when (wallpaper) {
+    val presetAccent = when (themePreset) {
+        "Frost" -> Color(0xFF9FC8D8)
+        "Ember" -> Color(0xFFD99A83)
+        "Moss" -> Color(0xFF9EAF96)
+        "Violet" -> Color(0xFFB5A5D5)
+        "Creato" -> Color(customAccentArgb)
+        "Personalizzato" -> when (accentChoice) {
+            "Blue" -> Color(0xFF4B9EFF)
+            "Green" -> Color(0xFF68D391)
+            "Amber" -> Color(0xFFFFB547)
+            else -> Color(0xFFD71920)
+        }
+        else -> Color(0xFFB8C0C8)
+    }
+    val bg = when (themePreset) {
+        "Mono Glass" -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2)
+        "Frost" -> if (dark) Color(0xFF111A20) else Color(0xFFEAF3F6)
+        "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8)
+        "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB)
+        "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5)
+        "Creato" -> if (dark) Color(0xFF111316) else Color(0xFFF0F1F1)
+        "Personalizzato" -> when (wallpaper) {
         "Graphite" -> Color(0xFF202326)
         "Warm" -> Color(0xFFF0E9DE)
         "Paper" -> Color(0xFFF7F7F2)
@@ -410,6 +442,15 @@ private fun NivoraApp() {
                     SettingSwitch("Icone monocromatiche", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
                     SettingChoice("Tema preimpostato", themePreset, "Mono Glass", "Frost", "Ember", "Moss", "Violet", "Creato", "Personalizzato") {
                         themePreset = it
+                        if (it != "Creato") {
+                            customWallpaperUri = null
+                            customWallpaperBitmap = null
+                            generatedArtwork = false
+                            prefs.edit().remove("customWallpaperUri").putBoolean("generatedArtwork", false).apply()
+                        } else if (customWallpaperUri == null && !generatedArtwork) {
+                            generatedArtwork = true
+                            prefs.edit().putBoolean("generatedArtwork", true).apply()
+                        }
                         val presetFont = when (it) {
                             "Mono Glass" -> "Mono"
                             "Frost" -> "iOS Light"
