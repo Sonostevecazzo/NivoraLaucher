@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: nivora-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,7 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nivora-store-artwork
-          path: "$RUNNER_TEMP/nivora-store-assets/"
+          path: "${{ runner.temp }}/nivora-store-assets/"
           if-no-files-found: error
 
       - name: Set up Java
