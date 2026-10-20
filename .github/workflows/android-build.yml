@@ -72,7 +72,7 @@ jobs:
               echo "16 KB ELF LOAD alignment failed for $LIB_PATH"
               exit 1
             fi
-          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so || true)
+          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so$' || true)
 
       - name: Upload signed release AAB
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
