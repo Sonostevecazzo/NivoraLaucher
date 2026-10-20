@@ -75,6 +75,9 @@ private fun NivoraApp() {
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    var themePreset by remember { mutableStateOf(prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass") }
     var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var sortBy by remember { mutableStateOf(prefs.getString("sortBy", "Name") ?: "Name") }
@@ -110,16 +113,17 @@ private fun NivoraApp() {
         "Preferiti" -> filteredApps.sortedWith(compareByDescending<LaunchableApp> { favorites.contains(it.packageName) }.thenBy { it.label.lowercase() })
         else -> filteredApps.sortedBy { it.label.lowercase() }
     }
-    val bg = when (wallpaper) {
+    val presetAccent = when (themePreset) { "Frost" -> Color(0xFF9FC8D8); "Ember" -> Color(0xFFD99A83); "Moss" -> Color(0xFF9EAF96); "Violet" -> Color(0xFFB5A5D5); else -> Color(0xFFB8C0C8) }
+    val bg = when (themePreset) { "Mono Glass" -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2); "Frost" -> if (dark) Color(0xFF111A20) else Color(0xFFEAF3F6); "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8); "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB); "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5); else -> when (wallpaper) {
         "Graphite" -> Color(0xFF202326)
         "Warm" -> Color(0xFFF0E9DE)
         "Paper" -> Color(0xFFF7F7F2)
         else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
-    }
+    } }
     val fg = if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
-    val panel = if (fg == Color(0xFF111212)) Color(0xFFE2DED5) else Color(0xFF202424)
-    val accent = when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
+    val panel = if (fg == Color(0xFF111212)) Color(0xFFDDE2E4).copy(alpha = 0.72f) else Color(0xFF30363A).copy(alpha = 0.62f)
+    val accent = if (themePreset != "Personalizzato") presetAccent else when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
     val selectedFont = when (fontChoice) {
         "Mono iOS", "Mono" -> FontFamily.Monospace
         "Serif iOS", "Serif" -> FontFamily.Serif
@@ -152,11 +156,12 @@ private fun NivoraApp() {
             }
             Column(Modifier.fillMaxSize().background(backdrop).statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    if (showLogo) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
                         Text("N I V O R A", color = fg, fontSize = 12.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.weight(1f))
+                    if (!showAllApps) IconButton(onClick = { searchExpanded = !searchExpanded; if (!searchExpanded) query = "" }) { Icon(Icons.Default.Search, contentDescription = "Cerca app", tint = fg) }
                     IconButton(onClick = { showSettings = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "Impostazioni", tint = fg)
                     }
@@ -189,11 +194,11 @@ private fun NivoraApp() {
                     }
                 }
 
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(horizontal = 14.dp, vertical = 13.dp),
+                if (showAllApps || searchExpanded) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
+                    BasicTextField(value = query, onValueChange = { query = it },
                         singleLine = true, textStyle = TextStyle(color = fg, fontSize = 15.sp),
                         cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
@@ -203,7 +208,7 @@ private fun NivoraApp() {
                     if (query.isNotEmpty()) Text("×", color = muted, fontSize = 22.sp,
                         modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
                 }
-                Spacer(Modifier.height(12.dp))
+                if (showAllApps || searchExpanded) Spacer(Modifier.height(12.dp))
 
                 if (showAllApps) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -279,6 +284,8 @@ private fun NivoraApp() {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     SettingSwitch("Tema scuro", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
+                    SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
+                    SettingChoice("Tema preimpostato", themePreset, "Mono Glass", "Frost", "Ember", "Moss", "Violet", "Personalizzato") { themePreset = it; prefs.edit().putString("themePreset", it).apply() }
                     SettingSwitch("Griglia di icone", grid) { grid = it; prefs.edit().putBoolean("grid", it).apply() }
                     SettingSwitch("Mostra nomi app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
                     SettingSwitch("Griglia compatta", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
@@ -287,7 +294,7 @@ private fun NivoraApp() {
                     SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
                     SettingChoice("Sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                     SettingChoice("Colore accento", accentChoice, "Red", "Blue", "Green", "Amber") { accentChoice = it; prefs.edit().putString("accentChoice", it).apply() }
-                    Text("Ispirazione: navigazione rapida di Niagara, essenzialità di Olauncher e personalizzazione di Lawnchair. I widget Android nativi, gli sfondi dalla galleria e i pacchetti icone restano funzioni da completare.",
+                    Text("Temi ispirati all’approccio di personalizzazione cromatica di Revolut: palette coerenti, superfici traslucide e accenti controllati. Il glass effect è simulato con superfici semitrasparenti, senza blur pesante.",
                         color = muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
                 }
             },
