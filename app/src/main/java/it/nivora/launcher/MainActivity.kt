@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
@@ -220,24 +221,41 @@ private fun NivoraApp() {
                     }
                 }
 
-                Row(
-                    Modifier.fillMaxWidth()
-                        .height(if (showAllApps) 46.dp else 38.dp)
-                        .glassSurface(panel, fg, glassEffect, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 13.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = "Cerca app", tint = muted, modifier = Modifier.size(if (showAllApps) 19.dp else 16.dp))
-                    Spacer(Modifier.width(9.dp))
-                    BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
-                        singleLine = true, textStyle = TextStyle(color = fg, fontSize = if (showAllApps) 14.sp else 12.sp),
-                        cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
-                        decorationBox = { inner ->
-                            if (query.isEmpty()) Text(if (showAllApps) "Cerca un'app o un pacchetto" else "Cerca…", color = muted, fontSize = if (showAllApps) 14.sp else 12.sp)
-                            inner()
-                        })
-                    if (query.isNotEmpty()) Text("×", color = muted, fontSize = 20.sp,
-                        modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
+                if (showAllApps) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .height(46.dp)
+                            .glassSurface(panel, fg, glassEffect, RoundedCornerShape(18.dp))
+                            .padding(horizontal = 13.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = "Cerca app", tint = muted, modifier = Modifier.size(19.dp))
+                        Spacer(Modifier.width(9.dp))
+                        BasicTextField(value = query, onValueChange = { query = it },
+                            singleLine = true, textStyle = TextStyle(color = fg, fontSize = 14.sp),
+                            cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
+                            decorationBox = { inner ->
+                                if (query.isEmpty()) Text("Cerca un'app o un pacchetto", color = muted, fontSize = 14.sp)
+                                inner()
+                            })
+                        if (query.isNotEmpty()) Text("×", color = muted, fontSize = 20.sp,
+                            modifier = Modifier.combinedClickable(onClick = { query = "" }, onLongClick = { query = "" }).padding(horizontal = 4.dp))
+                    }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .height(36.dp)
+                            .glassSurface(panel.copy(alpha = 0.28f), fg, glassEffect, RoundedCornerShape(14.dp))
+                            .clickable { showAllApps = true; favoritesOnly = false }
+                            .padding(horizontal = 13.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = "Apri ricerca app", tint = muted, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(9.dp))
+                        Text("Cerca app", color = muted.copy(alpha = 0.82f), fontSize = 12.sp)
+                        Spacer(Modifier.weight(1f))
+                        Text("ESPLORA", color = muted.copy(alpha = 0.62f), fontSize = 9.sp, letterSpacing = 1.1.sp)
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
 
