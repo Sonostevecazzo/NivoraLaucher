@@ -638,7 +638,7 @@ private fun advanceSnake(state: SnakeState, direction: SnakeDirection): SnakeSta
     if (next.first !in 0 until 16 || next.second !in 0 until 22 || next in collisionBody) return state.copy(over = true)
     val newBody = listOf(next) + if (eating) state.body else state.body.dropLast(1)
     if (!eating) return state.copy(body = newBody)
-    val free = (for (y in 0 until 22) for (x in 0 until 16) (x to y)).filterNot { it in newBody }
+    val free = (0 until 22).flatMap { y -> (0 until 16).map { x -> x to y } }.filterNot { it in newBody }
     if (free.isEmpty()) return state.copy(body = newBody, score = state.score + 10, over = true)
     return state.copy(body = newBody, food = free.random(), score = state.score + 10)
 }
