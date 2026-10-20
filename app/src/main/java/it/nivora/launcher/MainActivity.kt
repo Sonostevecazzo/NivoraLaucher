@@ -344,7 +344,7 @@ private fun NivoraApp() {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
                             AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, if (monochromeIcons) accent else null,
                                 onClick = {
-                                    launchApp(context, app, prefs) { packageName ->
+                                    launchApp(context, app) { packageName ->
                                         recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
                                         prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
                                     }
@@ -359,7 +359,10 @@ private fun NivoraApp() {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
                             AppListRow(app, favorites.contains(app.packageName), fg, muted, if (monochromeIcons) accent else null,
-                                onClick = { launchApp(context, app) },
+                                onClick = { launchApp(context, app) { packageName ->
+                                    recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                    prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                } },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
                                     Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
@@ -761,7 +764,7 @@ private fun BlockfallGame(accent: Color, fg: Color, panel: Color, modifier: Modi
 }
 
 
-private fun launchApp(context: android.content.Context, app: LaunchableApp, prefs: android.content.SharedPreferences, onLaunched: (String) -> Unit) {
+private fun launchApp(context: android.content.Context, app: LaunchableApp, onLaunched: (String) -> Unit) {
     val launch = context.packageManager.getLaunchIntentForPackage(app.packageName)
     if (launch != null) {
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
