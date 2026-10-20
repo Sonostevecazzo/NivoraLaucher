@@ -22,7 +22,7 @@ Android system features, including any device backup or transfer feature enabled
 
 The app queries activities available to launch so it can provide launcher functionality. The user chooses any wallpaper through Android's system photo picker; Nivora does not request broad media-library access for this purpose.
 
-Users can remove a selected wallpaper or change their settings within the app. Uninstalling the app removes its local app data subject to Android system behavior and any backup settings.
+Users can replace the selected wallpaper or change their settings within the app. Uninstalling the app removes its local app data subject to Android system behavior and any backup settings.
 
 ## Children
 
