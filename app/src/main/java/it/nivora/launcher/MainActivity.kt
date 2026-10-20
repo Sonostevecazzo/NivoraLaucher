@@ -567,7 +567,7 @@ private fun createArcadePalette(accent: Color, foreground: Color, dark: Boolean,
         listOf(-34f, 0f, 34f, 68f, 126f, 174f, 218f).map { tone(it, if (dark) 0.94f else 0.48f) }
     }
     return ArcadePalette(
-        accent = accent,
+        accent = if (dark) accent else tone(0f, 0.36f),
         food = if (monochrome) foreground else tone(155f, if (dark) 0.98f else 0.38f),
         board = if (dark) Color(0xFF080B0F) else Color(0xFFF7F9FB),
         grid = foreground.copy(alpha = if (dark) 0.085f else 0.11f),
