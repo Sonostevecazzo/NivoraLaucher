@@ -190,7 +190,7 @@ private fun NivoraApp() {
         "Paper" -> Color(0xFFF7F7F2)
         else -> if (dark) Color(0xFF090A0A) else Color(0xFFF3F3EF)
     } }
-    val fg = if (themePreset == "Creato") Color(0xFFF4F4F0) else if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
+    val fg = if (themePreset == "Creato") Color(0xFFF4F4F0) else if (themePreset != "Personalizzato") { if (dark) Color(0xFFF4F4F0) else Color(0xFF111212) } else if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFDDE2E4).copy(alpha = 0.72f) else Color(0xFF30363A).copy(alpha = 0.62f)
     val accent = if (themePreset != "Personalizzato") presetAccent else when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
@@ -349,7 +349,7 @@ private fun NivoraApp() {
                 }
 
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BottomAction("HOME", !showAllApps, accent, fg, panel) { showAllApps = false; query = ""; favoritesOnly = true }
+                    BottomAction("HOME", !showAllApps, accent, fg, panel) { showAllApps = false; query = ""; searchExpanded = false; favoritesOnly = true }
                     BottomAction("APP", showAllApps, accent, fg, panel) { showAllApps = true; query = ""; favoritesOnly = false }
                 }
             }
