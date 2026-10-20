@@ -3,6 +3,8 @@ package it.nivora.launcher
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
@@ -97,6 +99,7 @@ private fun NivoraApp() {
     var accentChoice by remember { mutableStateOf(prefs.getString("accentChoice", "Red") ?: "Red") }
     var themePreset by remember { mutableStateOf(prefs.getString("themePreset", "Glass Mono") ?: "Glass Mono") }
     var glassEffect by remember { mutableStateOf(prefs.getBoolean("glassEffect", true)) }
+    var monoIcons by remember { mutableStateOf(prefs.getBoolean("monoIcons", true)) }
     var showBrand by remember { mutableStateOf(prefs.getBoolean("showBrand", true)) }
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
@@ -296,7 +299,7 @@ private fun NivoraApp() {
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, accent, compact, iconSize, fontChoice,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, accent, compact, iconSize, fontChoice, monoIcons,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -307,7 +310,7 @@ private fun NivoraApp() {
                 } else {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted, accent,
+                            AppListRow(app, favorites.contains(app.packageName), fg, muted, accent, monoIcons,
                                 onClick = { launchApp(context, app) },
                                 onLongClick = {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
@@ -342,6 +345,10 @@ private fun NivoraApp() {
                     SettingSwitch("Effetto vetro", glassEffect) {
                         glassEffect = it
                         prefs.edit().putBoolean("glassEffect", it).apply()
+                    }
+                    SettingSwitch("Icone monocromatiche", monoIcons) {
+                        monoIcons = it
+                        prefs.edit().putBoolean("monoIcons", it).apply()
                     }
                     SettingSwitch("Mostra logo Nivora", showBrand) {
                         showBrand = it
@@ -429,12 +436,15 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, accent: Color, compact: Boolean, iconSize: Int, fontChoice: String,
-                    onClick: () -> Unit, onLongClick: () -> Unit) {
+                    monoIcons: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
+                update = {
+                    it.setImageDrawable(app.icon)
+                    it.colorFilter = if (monoIcons) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
+                }, modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(accent))
         }
         if (showLabel) {
@@ -447,11 +457,14 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, accent: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, accent: Color, monoIcons: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { it.setImageDrawable(app.icon) }, modifier = Modifier.size(36.dp))
+            update = {
+                it.setImageDrawable(app.icon)
+                it.colorFilter = if (monoIcons) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
+            }, modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
             Text(app.label, color = fg, fontSize = 15.sp, maxLines = 1)
