@@ -21,6 +21,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Render Google Play artwork
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          mkdir -p "$RUNNER_TEMP/nivora-store-assets"
+          rsvg-convert -w 512 -h 512 store/assets/play-icon.svg > "$RUNNER_TEMP/nivora-store-assets/play-icon-512.png"
+          rsvg-convert -w 1024 -h 500 store/assets/feature-graphic.svg > "$RUNNER_TEMP/nivora-store-assets/feature-graphic-1024x500.png"
+          file "$RUNNER_TEMP/nivora-store-assets/"*.png
+
+      - name: Upload Google Play artwork
+        uses: actions/upload-artifact@v4
+        with:
+          name: nivora-store-artwork
+          path: "$RUNNER_TEMP/nivora-store-assets/"
+          if-no-files-found: error
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
