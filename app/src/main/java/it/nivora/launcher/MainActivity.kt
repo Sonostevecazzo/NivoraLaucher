@@ -254,6 +254,8 @@ private fun NivoraApp() {
     val fg = if (themePreset == "Creato") { if (dark) Color(0xFFF4F4F0) else Color(0xFF111212) } else if (themePreset != "Personalizzato") { if (dark) Color(0xFFF4F4F0) else Color(0xFF111212) } else if (wallpaper == "Warm" || wallpaper == "Paper" || (!dark && wallpaper == "OLED")) Color(0xFF111212) else Color(0xFFF4F4F0)
     val muted = if (fg == Color(0xFF111212)) Color(0xFF555955) else Color(0xFFB8BEBA)
     val panel = if (fg == Color(0xFF111212)) Color(0xFFDDE2E4).copy(alpha = 0.72f) else Color(0xFF30363A).copy(alpha = 0.62f)
+    // Dialogs must be opaque: translucency is reserved for cards and glass surfaces, not text-heavy overlays.
+    val dialogSurface = if (dark) Color(0xFF171A1E) else Color(0xFFF7F8F9)
     val accent = if (themePreset != "Personalizzato") presetAccent else when (accentChoice) { "Blue" -> Color(0xFF4B9EFF); "Green" -> Color(0xFF68D391); "Amber" -> Color(0xFFFFB547); else -> Color(0xFFD71920) }
     val selectedFont = when (fontChoice) {
         "Mono iOS", "Mono" -> FontFamily.Monospace
@@ -289,7 +291,7 @@ private fun NivoraApp() {
                 if (themePreset == "Creato" && customWallpaperBitmap != null) {
                     Image(bitmap = customWallpaperBitmap!!.asImageBitmap(), contentDescription = "Sfondo personalizzato", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else if (themePreset == "Creato" && generatedArtwork) {
-                    GenerativeWallpaper(seed = artSeed, accent = accent, modifier = Modifier.fillMaxSize())
+                    GenerativeWallpaper(seed = artSeed, accent = accent, prompt = wallpaperPrompt, modifier = Modifier.fillMaxSize())
                 } else {
                     Box(Modifier.fillMaxSize().background(backdrop))
                 }
@@ -438,10 +440,10 @@ private fun NivoraApp() {
     if (showSettings) {
         AlertDialog(
             onDismissRequest = { showSettings = false },
-            containerColor = panel,
+            containerColor = dialogSurface,
             title = { Text("PERSONALIZZA", color = fg, letterSpacing = 2.sp, fontSize = 15.sp) },
             text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SettingSwitch("Tema scuro", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
                     SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
                     SettingSwitch("Icone monocromatiche", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
@@ -502,7 +504,7 @@ private fun NivoraApp() {
 
     if (showWallpaperStudio) {
         AlertDialog(
-            onDismissRequest = { showWallpaperStudio = false }, containerColor = panel,
+            onDismissRequest = { showWallpaperStudio = false }, containerColor = dialogSurface,
             title = { Text("PRISM ATELIER", color = fg, letterSpacing = 2.sp, fontSize = 15.sp) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -602,21 +604,90 @@ private fun PrismSurface(modifier: Modifier = Modifier, tint: Color, shape: Shap
 }
 
 @Composable
-private fun GenerativeWallpaper(seed: Int, accent: Color, modifier: Modifier = Modifier) {
+private fun GenerativeWallpaper(seed: Int, accent: Color, prompt: String, modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier = modifier) {
         val random = Random(seed)
-        val secondary = when (Math.floorMod(seed / 7, 4)) { 0 -> Color(0xFF5B78A5); 1 -> Color(0xFF7A4D75); 2 -> Color(0xFF526F59); else -> Color(0xFF8C6248) }
-        drawRect(brush = Brush.linearGradient(listOf(Color(0xFF080A0E), secondary.copy(alpha = 0.72f), Color(0xFF10131A)), start = Offset(0f, 0f), end = Offset(size.width, size.height)))
-        repeat(7) { index ->
+        val description = prompt.lowercase(Locale.ROOT)
+        val nuragic = listOf("nurag", "sard", "megalit", "pietra", "archeolog").any { it in description }
+        val botanical = listOf("botan", "organ", "foglia", "foresta", "bosco", "natura", "verde").any { it in description }
+        val cyber = listOf("cyber", "neon", "tech", "futur", "digit", "circuit", "elettric").any { it in description }
+        val secondary = when {
+            nuragic -> Color(0xFF806A53)
+            botanical -> Color(0xFF315D4A)
+            cyber -> Color(0xFF294D75)
+            listOf("aurora", "cosmic", "spazio", "galass", "violet").any { it in description } -> Color(0xFF584477)
+            listOf("oro", "sabbia", "deserto", "caldo").any { it in description } -> Color(0xFF8C6248)
+            else -> when (Math.floorMod(seed / 7, 4)) { 0 -> Color(0xFF5B78A5); 1 -> Color(0xFF7A4D75); 2 -> Color(0xFF526F59); else -> Color(0xFF8C6248) }
+        }
+        drawRect(brush = Brush.linearGradient(listOf(Color(0xFF080A0E), secondary.copy(alpha = 0.82f), Color(0xFF10131A)), start = Offset(0f, 0f), end = Offset(size.width, size.height)))
+        // Soft, layered light adds depth without competing with app labels.
+        repeat(8) { index ->
             val center = Offset(random.nextFloat() * size.width, random.nextFloat() * size.height)
-            val radius = size.minDimension * (0.12f + random.nextFloat() * 0.25f)
-            drawCircle(brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.22f / (1 + index * 0.16f)), secondary.copy(alpha = 0.09f), Color.Transparent), center = center, radius = radius), radius = radius, center = center)
+            val radius = size.minDimension * (0.10f + random.nextFloat() * 0.22f)
+            drawCircle(brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.19f / (1 + index * 0.14f)), secondary.copy(alpha = 0.10f), Color.Transparent), center = center, radius = radius), radius = radius, center = center)
         }
-        repeat(9) { index ->
-            val x = (index + 1) * size.width / 10f
-            drawLine(color = accent.copy(alpha = 0.10f), start = Offset(x, 0f), end = Offset(x - size.height * 0.22f, size.height), strokeWidth = 1.dp.toPx())
+        if (nuragic) {
+            val baseY = size.height * 0.73f
+            val stone = secondary.copy(alpha = 0.62f)
+            // A stylized nuraghe silhouette, built from clean stone-like geometry.
+            val tower = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.27f, baseY)
+                lineTo(size.width * 0.34f, baseY - size.height * 0.25f)
+                lineTo(size.width * 0.37f, baseY - size.height * 0.43f)
+                lineTo(size.width * 0.41f, baseY - size.height * 0.46f)
+                lineTo(size.width * 0.43f, baseY - size.height * 0.42f)
+                lineTo(size.width * 0.43f, baseY - size.height * 0.47f)
+                lineTo(size.width * 0.47f, baseY - size.height * 0.47f)
+                lineTo(size.width * 0.47f, baseY - size.height * 0.42f)
+                lineTo(size.width * 0.51f, baseY - size.height * 0.47f)
+                lineTo(size.width * 0.55f, baseY - size.height * 0.43f)
+                lineTo(size.width * 0.58f, baseY - size.height * 0.25f)
+                lineTo(size.width * 0.65f, baseY)
+                close()
+            }
+            drawPath(tower, stone)
+            drawRoundRect(color = stone.copy(alpha = 0.7f), topLeft = Offset(size.width * 0.13f, baseY - size.height * 0.15f), size = androidx.compose.ui.geometry.Size(size.width * 0.19f, size.height * 0.15f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.025f))
+            drawRoundRect(color = stone.copy(alpha = 0.7f), topLeft = Offset(size.width * 0.60f, baseY - size.height * 0.18f), size = androidx.compose.ui.geometry.Size(size.width * 0.22f, size.height * 0.18f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.025f))
+            drawRoundRect(color = Color(0xFF080A0E).copy(alpha = 0.7f), topLeft = Offset(size.width * 0.45f, baseY - size.height * 0.12f), size = androidx.compose.ui.geometry.Size(size.width * 0.08f, size.height * 0.12f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.04f))
+            repeat(18) { i ->
+                val x = size.width * (0.12f + i * 0.045f)
+                drawLine(color = Color(0xFFE1C7A2).copy(alpha = 0.10f), start = Offset(x, baseY + size.height * 0.02f), end = Offset(x - size.width * 0.025f, size.height), strokeWidth = 1.dp.toPx())
+            }
+        } else if (botanical) {
+            val stems = listOf(0.12f, 0.88f, 0.22f, 0.78f)
+            stems.forEachIndexed { index, xFactor ->
+                val start = Offset(size.width * xFactor, size.height * 1.02f)
+                val end = Offset(size.width * (if (xFactor < 0.5f) 0.42f else 0.58f), size.height * (0.42f + index * 0.045f))
+                drawLine(secondary.copy(alpha = 0.75f), start, end, strokeWidth = size.minDimension * 0.004f)
+                for (leaf in 1..6) {
+                    val t = leaf / 7f
+                    val x = start.x + (end.x - start.x) * t
+                    val y = start.y + (end.y - start.y) * t
+                    val side = if (leaf % 2 == 0) 1f else -1f
+                    drawOval(color = accent.copy(alpha = 0.15f + leaf * 0.025f), topLeft = Offset(x + side * size.width * 0.025f - size.width * 0.018f, y - size.height * 0.025f), size = androidx.compose.ui.geometry.Size(size.width * 0.055f, size.height * 0.025f))
+                }
+            }
+        } else if (cyber) {
+            for (i in 1..12) {
+                val y = size.height * i / 14f
+                drawLine(accent.copy(alpha = if (i % 3 == 0) 0.20f else 0.07f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+            }
+            for (i in 1..7) {
+                val x = size.width * i / 8f
+                drawLine(accent.copy(alpha = 0.10f), Offset(x, size.height * 0.25f), Offset(x - size.width * 0.12f, size.height), strokeWidth = 1.dp.toPx())
+            }
+            drawCircle(color = accent.copy(alpha = 0.16f), radius = size.minDimension * 0.19f, center = Offset(size.width * 0.72f, size.height * 0.31f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+            drawCircle(color = accent.copy(alpha = 0.08f), radius = size.minDimension * 0.25f, center = Offset(size.width * 0.72f, size.height * 0.31f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()))
+        } else {
+            repeat(10) { index ->
+                val x = (index + 1) * size.width / 11f
+                drawLine(color = accent.copy(alpha = 0.08f), start = Offset(x, 0f), end = Offset(x - size.height * 0.18f, size.height), strokeWidth = 1.dp.toPx())
+            }
+            drawCircle(color = Color.White.copy(alpha = 0.055f), radius = size.minDimension * 0.32f, center = Offset(size.width * 0.78f, size.height * 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()))
+            drawCircle(color = accent.copy(alpha = 0.08f), radius = size.minDimension * 0.42f, center = Offset(size.width * 0.78f, size.height * 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()))
         }
-        drawCircle(color = Color.White.copy(alpha = 0.035f), radius = size.minDimension * 0.36f, center = Offset(size.width * 0.80f, size.height * 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()))
+        // Darken the lower area slightly so icons and labels remain legible over every generated composition.
+        drawRect(brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.08f), Color.Black.copy(alpha = 0.34f)), startY = size.height * 0.48f, endY = size.height))
     }
 }
 
