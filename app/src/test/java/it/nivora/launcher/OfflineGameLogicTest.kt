@@ -59,7 +59,8 @@ class OfflineGameLogicTest {
 
     @Test
     fun blockCannotMoveOutsideLeftEdge() {
-        val initial = BlockState(pieceType = 2, pieceX = 0, pieceY = 3)
+        // The line piece has no empty leading column, so moving left from x=0 must be rejected.
+        val initial = BlockState(pieceType = 1, pieceX = 0, pieceY = 3)
         val next = moveBlock(initial, dx = -1)
 
         assertEquals(0, next.pieceX)
