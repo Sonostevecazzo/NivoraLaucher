@@ -198,7 +198,7 @@ private fun NivoraApp() {
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    BasicTextField(value = query, onValueChange = { query = it },
+                    BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) showAllApps = true },
                         singleLine = true, textStyle = TextStyle(color = fg, fontSize = 15.sp),
                         cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
