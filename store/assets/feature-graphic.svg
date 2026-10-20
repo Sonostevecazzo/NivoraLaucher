@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0A0D11"/><stop offset=".55" stop-color="#18232C"/><stop offset="1" stop-color="#263944"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF" stop-opacity=".18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity=".035"/></linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#D2F7FF"/><stop offset="1" stop-color="#58BBD0"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#6DD4E8" stop-opacity=".22"/><stop offset="1" stop-color="#6DD4E8" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <circle cx="775" cy="245" r="350" fill="url(#halo)"/>
+  <g opacity=".18" stroke="#BFEAF2" stroke-width="1">
+    <path d="M0 100H1024M0 200H1024M0 300H1024M0 400H1024"/>
+    <path d="M100 0V500M200 0V500M300 0V500M400 0V500M500 0V500M600 0V500M700 0V500M800 0V500M900 0V500"/>
+  </g>
+  <g transform="translate(62 54)">
+    <rect width="420" height="392" rx="34" fill="url(#glass)" stroke="#EAFBFF" stroke-opacity=".28"/>
+    <rect x="22" y="22" width="376" height="348" rx="25" fill="#0D1318" fill-opacity=".64" stroke="#FFFFFF" stroke-opacity=".08"/>
+    <text x="36" y="65" fill="#F3F7F9" font-family="Arial,sans-serif" font-size="15" letter-spacing="6">N I V O R A</text>
+    <circle cx="363" cy="57" r="6" fill="#80D6E5"/>
+    <text x="36" y="143" fill="#F5F7F8" font-family="Arial,sans-serif" font-size="55" font-weight="300">La tua home.</text>
+    <text x="36" y="202" fill="url(#cyan)" font-family="Arial,sans-serif" font-size="55" font-weight="600">Il tuo stile.</text>
+    <text x="38" y="238" fill="#C0CDD3" font-family="Arial,sans-serif" font-size="17">Temi glass · Icone mono · Giochi offline</text>
+    <g transform="translate(36 270)">
+      <rect width="104" height="70" rx="16" fill="#FFFFFF" fill-opacity=".08" stroke="#FFFFFF" stroke-opacity=".16"/>
+      <rect x="116" width="104" height="70" rx="16" fill="#FFFFFF" fill-opacity=".08" stroke="#FFFFFF" stroke-opacity=".16"/>
+      <rect x="232" width="104" height="70" rx="16" fill="#FFFFFF" fill-opacity=".08" stroke="#FFFFFF" stroke-opacity=".16"/>
+      <g fill="none" stroke="url(#cyan)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M31 44V24h10l23 22V24h10v20H64L41 22"/>
+        <path d="M146 23h42v29h-42zM154 31h26M154 39h19"/>
+        <path d="M259 44l9-10 8 6 13-17M286 23h3v3"/>
+      </g>
+    </g>
+  </g>
+  <g transform="translate(560 85)">
+    <text x="0" y="0" fill="#A9DDE7" font-family="Arial,sans-serif" font-size="16" letter-spacing="5">PRISM FLOW</text>
+    <text x="0" y="52" fill="#F3F7F9" font-family="Arial,sans-serif" font-size="31" font-weight="600">Minimalismo</text>
+    <text x="0" y="90" fill="#F3F7F9" font-family="Arial,sans-serif" font-size="31" font-weight="600">con carattere.</text>
+    <text x="0" y="132" fill="#BDCAD1" font-family="Arial,sans-serif" font-size="18">Una palette che segue il tuo tema.</text>
+    <g transform="translate(0 175)">
+      <rect width="365" height="82" rx="20" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".2"/>
+      <circle cx="42" cy="41" r="19" fill="#D9E4E9"/><circle cx="89" cy="41" r="19" fill="#83C8D6"/>
+      <circle cx="136" cy="41" r="19" fill="#C0B5E0"/><circle cx="183" cy="41" r="19" fill="#DCA18C"/>
+      <circle cx="230" cy="41" r="19" fill="#A5B99B"/>
+      <text x="272" y="37" fill="#F3F7F9" font-family="Arial,sans-serif" font-size="14">Mono Glass</text>
+      <text x="272" y="56" fill="#BDCAD1" font-family="Arial,sans-serif" font-size="12">Frost · Ember · Moss</text>
+    </g>
+    <g transform="translate(0 284)">
+      <rect width="365" height="70" rx="20" fill="#071016" fill-opacity=".52" stroke="#FFFFFF" stroke-opacity=".18"/>
+      <g transform="translate(23 17)" fill="none" stroke="#9DE0EC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M0 19h24v-14h22v14h22"/><path d="M11 19v13M35 19v13M59 19v13"/>
+      </g>
+      <text x="115" y="30" fill="#F3F7F9" font-family="Arial,sans-serif" font-size="17" font-weight="600">Prism Arcade</text>
+      <text x="115" y="50" fill="#BDCAD1" font-family="Arial,sans-serif" font-size="13">Snake + Blockfall, offline</text>
+    </g>
+  </g>
+</svg>
