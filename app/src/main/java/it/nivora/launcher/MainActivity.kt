@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -126,14 +127,14 @@ private fun NivoraApp() {
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
 
     BackHandler(
-        enabled = showSettings || showWallpaperStudio || showArcade || searchExpanded || showAllApps
+        enabled = showWallpaperStudio || showArcade || showSettings || searchExpanded || showAllApps
     ) {
         when {
             showWallpaperStudio -> showWallpaperStudio = false
             showArcade -> showArcade = false
             showSettings -> showSettings = false
             searchExpanded -> { searchExpanded = false; query = "" }
-            showAllApps -> { showAllApps = false; query = ""; favoritesOnly = true }
+            showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
     }
 
@@ -181,39 +182,61 @@ private fun NivoraApp() {
     suspend fun loadApps(): List<LaunchableApp> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        @Suppress("DEPRECATION")
-        pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-            .mapNotNull { info ->
-                try { LaunchableApp(info.loadLabel(pm).toString(), info.activityInfo.packageName, info.loadIcon(pm)) }
-                catch (_: Exception) { null }
-            }.distinctBy { it.packageName }
+        val activities = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+        }
+        activities.mapNotNull { info ->
+            val activityInfo = info.activityInfo ?: return@mapNotNull null
+            try {
+                LaunchableApp(
+                    label = info.loadLabel(pm).toString(),
+                    packageName = activityInfo.packageName,
+                    icon = info.loadIcon(pm)
+                )
+            } catch (_: Exception) { null }
+        }.distinctBy { it.packageName }.sortedBy { it.label.lowercase(Locale.ROOT) }
     }
 
-    LaunchedEffect(Unit) {
-        val loadedApps = loadApps().sortedBy { it.label.lowercase() }
+    suspend fun refreshLaunchableApps() {
+        loading = true
+        val loadedApps = loadApps()
         apps = loadedApps
-        if (loadedApps.isNotEmpty()) {
-            val installedPackages = loadedApps.map { it.packageName }.toSet()
-            val cleanedFavorites = favorites.intersect(installedPackages)
-            if (cleanedFavorites != favorites) {
-                favorites = cleanedFavorites
-                prefs.edit().putStringSet("favorites", cleanedFavorites).apply()
-            }
-            val cleanedRecents = recentApps.filter { it in installedPackages }.distinct().take(30)
-            if (cleanedRecents != recentApps) {
-                recentApps = cleanedRecents
-                prefs.edit().putString("recentApps", cleanedRecents.joinToString("|")).apply()
-            }
+        val installedPackages = loadedApps.map { it.packageName }.toSet()
+        val cleanedFavorites = favorites.intersect(installedPackages)
+        if (cleanedFavorites != favorites) {
+            favorites = cleanedFavorites
+            prefs.edit().putStringSet("favorites", cleanedFavorites).apply()
+        }
+        val cleanedRecents = recentApps.filter { it in installedPackages }.distinct().take(30)
+        if (cleanedRecents != recentApps) {
+            recentApps = cleanedRecents
+            prefs.edit().putString("recentApps", cleanedRecents.joinToString("|")).apply()
         }
         loading = false
+    }
+
+    // Refresh the catalog when this Home activity resumes after another app, Settings or an install.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            refreshLaunchableApps()
+        }
     }
     LaunchedEffect(Unit) {
         while (true) { clock = LocalDateTime.now(); delay(30_000) }
     }
 
-    val filteredApps = apps.filter {
-        (it.label.contains(query.trim(), true) || it.packageName.contains(query.trim(), true)) &&
-            (!favoritesOnly || favorites.contains(it.packageName))
+    val trimmedQuery = query.trim()
+    // Searches must always cover the full catalog, regardless of the favorites-only Home filter.
+    val filteredApps = apps.filter { app ->
+        val matchesQuery = trimmedQuery.isEmpty() ||
+            app.label.contains(trimmedQuery, ignoreCase = true) ||
+            app.packageName.contains(trimmedQuery, ignoreCase = true)
+        val matchesFavoriteFilter = trimmedQuery.isNotEmpty() || !favoritesOnly || favorites.contains(app.packageName)
+        matchesQuery && matchesFavoriteFilter
     }
     val visibleApps = when (sortBy) {
         "Recenti" -> filteredApps.sortedWith(compareBy<LaunchableApp> { val index = recentApps.indexOf(it.packageName); if (index < 0) Int.MAX_VALUE else index }.thenBy { it.label.lowercase() })
@@ -387,9 +410,13 @@ private fun NivoraApp() {
                                 else if (favoritesOnly) "NESSUNA APP PREFERITA" else "NESSUNA APP TROVATA",
                                 color = muted, fontSize = 11.sp, letterSpacing = 1.sp, textAlign = TextAlign.Center
                             )
-                            if (favoritesOnly) {
-                                TextButton(onClick = { showAllApps = true; favoritesOnly = false }) {
-                                    Text(if (showAllApps) "MOSTRA TUTTE" else "APRI APP", color = accent)
+                            if (!showAllApps) {
+                                TextButton(onClick = { showAllApps = true; query = ""; favoritesOnly = false }) {
+                                    Text("APRI TUTTE LE APP", color = accent)
+                                }
+                            } else if (favoritesOnly) {
+                                TextButton(onClick = { favoritesOnly = false }) {
+                                    Text("MOSTRA TUTTE", color = accent)
                                 }
                             }
                         }
