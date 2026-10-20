@@ -525,16 +525,16 @@ private fun GenerativeWallpaper(seed: Int, accent: Color, modifier: Modifier = M
 
 
 private enum class ArcadeGame { MENU, SNAKE, BLOCKFALL }
-private enum class SnakeDirection(val dx: Int, val dy: Int) {
+internal enum class SnakeDirection(val dx: Int, val dy: Int) {
     UP(0, -1), RIGHT(1, 0), DOWN(0, 1), LEFT(-1, 0)
 }
-private data class SnakeState(
+internal data class SnakeState(
     val body: List<Pair<Int, Int>> = listOf(7 to 10, 6 to 10, 5 to 10),
     val food: Pair<Int, Int> = 11 to 10,
     val score: Int = 0,
     val over: Boolean = false
 )
-private data class BlockState(
+internal data class BlockState(
     val board: List<List<Int>> = List(18) { List(10) { 0 } },
     val pieceType: Int = Random.nextInt(1, 8),
     val pieceX: Int = 3,
@@ -679,7 +679,7 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
     Text("Comandi a schermo · nessuna connessione richiesta", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
 }
 
-private fun advanceSnake(state: SnakeState, direction: SnakeDirection): SnakeState {
+internal fun advanceSnake(state: SnakeState, direction: SnakeDirection): SnakeState {
     if (state.over) return state
     val head = state.body.first()
     val next = (head.first + direction.dx) to (head.second + direction.dy)
@@ -702,19 +702,19 @@ private val BLOCK_SHAPES: Map<Int, List<Pair<Int, Int>>> = mapOf(
     6 to listOf(0 to 0, 0 to 1, 1 to 1, 2 to 1),
     7 to listOf(2 to 0, 0 to 1, 1 to 1, 2 to 1)
 )
-private fun blockCells(type: Int, rotation: Int): List<Pair<Int, Int>> {
+internal fun blockCells(type: Int, rotation: Int): List<Pair<Int, Int>> {
     var cells = BLOCK_SHAPES[type] ?: BLOCK_SHAPES.getValue(1)
     repeat(Math.floorMod(rotation, 4)) { cells = cells.map { (x, y) -> (3 - y) to x } }
     return cells
 }
 
-private fun canPlaceBlock(state: BlockState, x: Int, y: Int, rotation: Int): Boolean =
+internal fun canPlaceBlock(state: BlockState, x: Int, y: Int, rotation: Int): Boolean =
     blockCells(state.pieceType, rotation).all { (dx, dy) ->
         val px = x + dx; val py = y + dy
         px in 0 until 10 && py < 18 && (py < 0 || state.board[py][px] == 0)
     }
 
-private fun moveBlock(state: BlockState, dx: Int = 0, dy: Int = 0, rotate: Boolean = false, hardDrop: Boolean = false): BlockState {
+internal fun moveBlock(state: BlockState, dx: Int = 0, dy: Int = 0, rotate: Boolean = false, hardDrop: Boolean = false): BlockState {
     if (state.over) return state
     var x = state.pieceX; var y = state.pieceY; var rotation = state.rotation
     if (rotate) {
@@ -732,7 +732,7 @@ private fun moveBlock(state: BlockState, dx: Int = 0, dy: Int = 0, rotate: Boole
     return state.copy(pieceX = x, pieceY = y, rotation = rotation)
 }
 
-private fun lockBlock(state: BlockState): BlockState {
+internal fun lockBlock(state: BlockState): BlockState {
     val mutable = state.board.map { it.toMutableList() }
     blockCells(state.pieceType, state.rotation).forEach { (dx, dy) ->
         val x = state.pieceX + dx; val y = state.pieceY + dy
