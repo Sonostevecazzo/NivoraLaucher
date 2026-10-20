@@ -30,4 +30,4 @@ Nivora is a general-purpose launcher and is not specifically designed for childr
 
 ## Policy changes and contact
 
-This policy may be updated when app functionality changes. For privacy questions, contact the developer through the support contact published on the app's Google Play listing.
+This policy may be updated when app functionality changes. For privacy questions, use the public project issue tracker at https://github.com/Sonostevecazzo/NivoraLaucher/issues or the developer contact email published on the Google Play listing. Before submitting the app, the publisher must verify that this policy accurately identifies the legal publisher and the actual data handling of the release.
