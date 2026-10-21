@@ -1,4 +1,4 @@
-name: Android APK build
+name: Nivora Android CI
 
 on:
   push:
@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: nivora-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,6 +24,22 @@ jobs:
       NIVORA_KEY_PASSWORD: ${{ secrets.NIVORA_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Render Google Play artwork
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          mkdir -p "$RUNNER_TEMP/nivora-store-assets"
+          rsvg-convert -w 512 -h 512 store/assets/play-icon.svg > "$RUNNER_TEMP/nivora-store-assets/play-icon-512.png"
+          rsvg-convert -w 1024 -h 500 store/assets/feature-graphic.svg > "$RUNNER_TEMP/nivora-store-assets/feature-graphic-1024x500.png"
+          file "$RUNNER_TEMP/nivora-store-assets/"*.png
+
+      - name: Upload Google Play artwork
+        uses: actions/upload-artifact@v4
+        with:
+          name: nivora-store-artwork
+          path: "${{ runner.temp }}/nivora-store-assets/"
+          if-no-files-found: error
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -34,12 +54,28 @@ jobs:
           accept-android-sdk-licenses: true
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          # The project has no native sources; use NDK only for ELF validation utilities.
+          # If Google's CDN returns a truncated NDK archive, curl's retries are safer than sdkmanager's one-shot download.
+          NDK_DIR="$ANDROID_HOME/ndk/27.0.12077973"
+          if [ ! -x "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump" ]; then
+            mkdir -p "$RUNNER_TEMP/ndk-download"
+            curl --fail --location --retry 5 --retry-all-errors --retry-delay 2 \
+              "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip" \
+              --output "$RUNNER_TEMP/ndk-download/android-ndk-r27c-linux.zip"
+            unzip -q "$RUNNER_TEMP/ndk-download/android-ndk-r27c-linux.zip" -d "$RUNNER_TEMP/ndk-download"
+            mkdir -p "$ANDROID_HOME/ndk"
+            mv "$RUNNER_TEMP/ndk-download/android-ndk-r27c" "$NDK_DIR"
+          fi
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
+
+      - name: Run unit tests and Android lint
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug
 
       - name: Prepare persistent release signing key
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
@@ -48,21 +84,59 @@ jobs:
           echo "$NIVORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nivora-release.jks"
           echo "NIVORA_KEYSTORE_PATH=$RUNNER_TEMP/nivora-release.jks" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      - name: Build signed release AAB and APK for validation
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
-        run: gradle --no-daemon :app:assembleRelease
+        run: gradle --no-daemon :app:bundleRelease :app:assembleRelease
 
-      - name: Upload signed release APK
+      - name: Validate release APK 16 KB compatibility
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
+          OBJDUMP="$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
+          TMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          while IFS= read -r LIB_PATH; do
+            LIB_FILE="$TMP_DIR/$(basename "$LIB_PATH")"
+            unzip -p "$APK" "$LIB_PATH" > "$LIB_FILE"
+            if ! "$OBJDUMP" -p "$LIB_FILE" | awk '/LOAD/ { for (i=1; i<=NF; i++) if ($i=="align") { split($(i+1), parts, /\*\*/); found=1; if ((parts[2]+0) < 14) bad=1 } } END { if (!found || bad) exit 1 }'; then
+              echo "16 KB ELF LOAD alignment failed for $LIB_PATH"
+              exit 1
+            fi
+          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so$' || true)
+
+      - name: Upload signed release AAB
         if: ${{ env.NIVORA_KEYSTORE_BASE64 != '' && env.NIVORA_STORE_PASSWORD != '' && env.NIVORA_KEY_ALIAS != '' && env.NIVORA_KEY_PASSWORD != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: nivora-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: nivora-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
       - name: Build debug APK (until release signing is configured)
         if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
         run: gradle --no-daemon :app:assembleDebug
+
+      - name: Validate debug APK 16 KB compatibility
+        if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
+          OBJDUMP="$ANDROID_HOME/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump"
+          TMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          while IFS= read -r LIB_PATH; do
+            LIB_FILE="$TMP_DIR/$(basename "$LIB_PATH")"
+            unzip -p "$APK" "$LIB_PATH" > "$LIB_FILE"
+            if ! "$OBJDUMP" -p "$LIB_FILE" | awk '/LOAD/ { for (i=1; i<=NF; i++) if ($i=="align") { split($(i+1), parts, /\*\*/); found=1; if ((parts[2]+0) < 14) bad=1 } } END { if (!found || bad) exit 1 }'; then
+              echo "16 KB ELF LOAD alignment failed for $LIB_PATH"
+              exit 1
+            fi
+          done < <(unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.+\.so$' || true)
 
       - name: Upload debug APK
         if: ${{ env.NIVORA_KEYSTORE_BASE64 == '' || env.NIVORA_STORE_PASSWORD == '' || env.NIVORA_KEY_ALIAS == '' || env.NIVORA_KEY_PASSWORD == '' }}
