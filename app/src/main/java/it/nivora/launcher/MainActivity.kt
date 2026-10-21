@@ -401,8 +401,9 @@ private fun NivoraApp() {
                 else -> Brush.verticalGradient(listOf(bg, bg))
             }
             Box(Modifier.fillMaxSize()) {
-                if (customWallpaperBitmap != null) {
-                    Image(bitmap = customWallpaperBitmap!!.asImageBitmap(), contentDescription = "Sfondo personale", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                val wallpaperBitmap = customWallpaperBitmap
+                if (wallpaperBitmap != null) {
+                    Image(bitmap = wallpaperBitmap.asImageBitmap(), contentDescription = "Sfondo personale", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     Box(Modifier.fillMaxSize().background(if (dark) Color.Black.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.10f)))
                 } else {
                     Box(Modifier.fillMaxSize().background(backdrop))
@@ -807,7 +808,15 @@ private fun NivoraApp() {
                                 SettingsSection("Aiuto e feedback", "Nivora è un progetto in evoluzione. Queste azioni non richiedono account o dati personali.", accent) {
                                     Text("Versione ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                                     Text("Se trovi un problema, annota il passaggio che lo provoca e il modello del dispositivo.", color = muted, fontSize = 13.sp)
-                                    OutlinedButton(onClick = { Toast.makeText(context, "Grazie per aver provato Nivora!", Toast.LENGTH_SHORT).show() }, modifier = Modifier.fillMaxWidth()) { Text("Invia feedback") }
+                                    OutlinedButton(onClick = {
+                                        val feedback = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_SUBJECT, "Feedback Nivora Launcher ${BuildConfig.VERSION_NAME}")
+                                            putExtra(Intent.EXTRA_TEXT, "Dispositivo: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\nAndroid: ${android.os.Build.VERSION.RELEASE}\nNivora: ${BuildConfig.VERSION_NAME}\n\nDescrivi qui il problema o il suggerimento:")
+                                        }
+                                        try { context.startActivity(Intent.createChooser(feedback, "Invia feedback")) }
+                                        catch (_: Exception) { Toast.makeText(context, "Nessuna app disponibile per condividere il feedback", Toast.LENGTH_SHORT).show() }
+                                    }, modifier = Modifier.fillMaxWidth()) { Text("Invia feedback") }
                                 }
                             }
                             "Community" -> {
