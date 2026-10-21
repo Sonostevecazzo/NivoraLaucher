@@ -847,7 +847,7 @@ private fun NivoraApp() {
                 TextButton(onClick = {
                     val name = newThemeName.trim().replace("\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
                     val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString()).joinToString("\t")
-                    customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) } + record
+                    customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) }.toSet() + record
                     prefs.edit().putStringSet("customThemes", customThemes).apply()
                     savingThemeName = false
                     newThemeName = ""
