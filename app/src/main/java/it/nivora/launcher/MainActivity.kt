@@ -4,8 +4,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.Typeface
 import android.net.Uri
 import android.graphics.drawable.AdaptiveIconDrawable
@@ -1060,7 +1058,7 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { view -> view.setImageDrawable(app.icon); view.colorFilter = iconTint?.let { color -> PorterDuffColorFilter(color.toArgb(), PorterDuff.Mode.SRC_IN) } },
+            update = { view -> view.setImageDrawable(iconForDisplay(app.icon, iconTint)); view.clearColorFilter() },
             modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
