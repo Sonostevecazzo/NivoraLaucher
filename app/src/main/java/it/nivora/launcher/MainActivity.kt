@@ -118,6 +118,7 @@ private fun NivoraApp() {
     var homeWidgetIds by remember { mutableStateOf(prefs.getStringSet("homeWidgetIds", emptySet<String>())?.mapNotNull { it.toIntOrNull() } ?: emptyList<Int>()) }
     var pendingWidgetId by remember { mutableIntStateOf(-1) }
     var savingThemeName by remember { mutableStateOf(false) }
+    var showResetConfirmation by remember { mutableStateOf(false) }
     var newThemeName by remember { mutableStateOf("") }
     var customThemes by remember { mutableStateOf(prefs.getStringSet("customThemes", emptySet<String>())?.toSet() ?: emptySet<String>()) }
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
@@ -807,11 +808,7 @@ private fun NivoraApp() {
                                 SettingsSection("Avanzate", "Gestisci l'app e ripristina le preferenze di Nivora.", accent) {
                                     Text("Versione ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 14.sp)
                                     OutlinedButton(onClick = { showSettings = false; context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("Informazioni app Android") }
-                                    OutlinedButton(onClick = {
-                                        prefs.edit().clear().apply()
-                                        Toast.makeText(context, "Preferenze Nivora ripristinate. Riavvia il launcher per applicare tutto.", Toast.LENGTH_LONG).show()
-                                        showSettings = false
-                                    }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE58A8A))) { Text("Ripristina preferenze Nivora") }
+                                    OutlinedButton(onClick = { showResetConfirmation = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE58A8A))) { Text("Ripristina preferenze Nivora") }
                                 }
                             }
                         }
@@ -845,9 +842,9 @@ private fun NivoraApp() {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val name = newThemeName.trim().replace("\\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
-                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString()).joinToString("\\t")
-                    customThemes = customThemes.filterNot { it.substringBefore('\\t').equals(name, ignoreCase = true) } + record
+                    val name = newThemeName.trim().replace("\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
+                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString()).joinToString("\t")
+                    customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) } + record
                     prefs.edit().putStringSet("customThemes", customThemes).apply()
                     savingThemeName = false
                     newThemeName = ""
@@ -857,6 +854,49 @@ private fun NivoraApp() {
             dismissButton = {
                 TextButton(onClick = { savingThemeName = false }) { Text("ANNULLA") }
             }
+        )
+    }
+
+    if (showResetConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmation = false },
+            title = { Text("Ripristinare Nivora?") },
+            text = { Text("Verranno cancellati preferiti, widget aggiunti e temi salvati; il launcher tornerà alle impostazioni iniziali.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    homeWidgetIds.forEach { widgetId -> runCatching { appWidgetHost.deleteAppWidgetId(widgetId) } }
+                    prefs.edit().clear().apply()
+                    dark = true
+                    grid = true
+                    showLabels = true
+                    compact = false
+                    columns = 4
+                    iconSize = 50
+                    fontChoice = "Mono"
+                    wallpaper = "OLED"
+                    query = ""
+                    showAllApps = false
+                    showLogo = true
+                    searchExpanded = false
+                    themePreset = "Mono Glass"
+                    monochromeIcons = true
+                    customWallpaperUri = null
+                    customWallpaperBitmap = null
+                    homeWidgetIds = emptyList()
+                    customThemes = emptySet<String>()
+                    favorites = emptySet<String>()
+                    favoritesOnly = true
+                    recentApps = emptyList()
+                    sortBy = "Nome"
+                    newThemeName = ""
+                    savingThemeName = false
+                    settingsPage = "Menu"
+                    showResetConfirmation = false
+                    showSettings = false
+                    Toast.makeText(context, "Impostazioni di Nivora ripristinate.", Toast.LENGTH_SHORT).show()
+                }) { Text("RIPRISTINA", color = Color(0xFFE58A8A)) }
+            },
+            dismissButton = { TextButton(onClick = { showResetConfirmation = false }) { Text("ANNULLA") } }
         )
     }
 
@@ -1358,7 +1398,7 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         }
         if (showLabel) {
             Spacer(Modifier.height(7.dp))
-            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 12.sp,
+            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 2, softWrap = true, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = 12.sp,
                 letterSpacing = if (fontChoice == "iOS Style") (-0.15).sp else 0.sp, fontWeight = if (fontChoice == "iOS Style") FontWeight.Medium else FontWeight.Normal)
         }
     }
