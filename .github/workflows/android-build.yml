@@ -2,7 +2,7 @@ name: Nivora Android CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feat/nivora-complete-settings-rebuild"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
