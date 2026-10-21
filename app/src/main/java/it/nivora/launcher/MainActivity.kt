@@ -8,6 +8,8 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Typeface
 import android.net.Uri
+import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.widget.ImageView
@@ -1010,6 +1012,28 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
     return next.toSet()
 }
 
+/**
+ * Monochrome treatment for adaptive app icons: tint only the foreground layer and
+ * keep the adaptive mask. Tinting the entire ImageView turns the icon background
+ * into a solid square, which destroys the visual identity of the app.
+ *
+ * Legacy/non-adaptive icons keep their original colors until a dedicated glyph
+ * mapping exists for them; this is preferable to rendering an unreadable square.
+ */
+private fun iconForDisplay(icon: Drawable, tint: Color?): Drawable {
+    if (tint == null) {
+        return icon.constantState?.newDrawable()?.mutate() ?: icon.mutate()
+    }
+
+    val copy = icon.constantState?.newDrawable()?.mutate() ?: icon.mutate()
+    val adaptive = copy as? AdaptiveIconDrawable ?: return copy
+    val foreground = adaptive.foreground?.constantState?.newDrawable()?.mutate()
+        ?: adaptive.foreground?.mutate()
+        ?: return copy
+    foreground.setTint(tint.toArgb())
+    return AdaptiveIconDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT), foreground)
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconTint: Color?,
@@ -1018,7 +1042,7 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { view -> view.setImageDrawable(app.icon); view.colorFilter = iconTint?.let { color -> PorterDuffColorFilter(color.toArgb(), PorterDuff.Mode.SRC_IN) } },
+                update = { view -> view.setImageDrawable(iconForDisplay(app.icon, iconTint)); view.clearColorFilter() },
                 modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
