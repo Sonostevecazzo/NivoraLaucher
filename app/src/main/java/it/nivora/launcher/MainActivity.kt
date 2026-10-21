@@ -141,11 +141,12 @@ private fun NivoraApp() {
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
 
     BackHandler(
-        enabled = showArcade || showSettings || searchExpanded || showAllApps
+        enabled = showArcade || showSettings || searchExpanded || showAllApps || query.isNotBlank()
     ) {
         when {
             showArcade -> showArcade = false
             showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
+            query.isNotBlank() -> query = ""
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
@@ -600,7 +601,7 @@ private fun NivoraApp() {
                                 Text("Rendi Nivora davvero tuo", color = muted, fontSize = 13.sp)
                             }
                         }
-                        Spacer(Modifier.weight(if (settingsPage == "Menu") 0f else 1f))
+                        if (settingsPage != "Menu") Spacer(Modifier.weight(1f))
                         IconButton(onClick = { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
                             Text(if (settingsPage == "Menu") "×" else "‹", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light)
                         }
@@ -677,8 +678,16 @@ private fun NivoraApp() {
                                                         wallpaper = values[2]
                                                         dark = values[3].toBoolean()
                                                         monochromeIcons = values[4].toBoolean()
+                                                        if (values.size >= 7) {
+                                                            fontChoice = values[5]
+                                                            customWallpaperUri = values[6].takeIf { it.isNotBlank() }
+                                                        }
                                                         prefs.edit().putString("themePreset", themePreset).putString("wallpaper", wallpaper)
-                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).apply()
+                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).putString("fontChoice", fontChoice)
+                                                            .apply()
+                                                        prefs.edit().apply {
+                                                            if (customWallpaperUri.isNullOrBlank()) remove("customWallpaperUri") else putString("customWallpaperUri", customWallpaperUri)
+                                                        }.apply()
                                                     }
                                                 }) { Text("Applica", color = accent) }
                                                 TextButton(onClick = {
@@ -846,7 +855,7 @@ private fun NivoraApp() {
             confirmButton = {
                 TextButton(onClick = {
                     val name = newThemeName.trim().replace("\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
-                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString()).joinToString("\t")
+                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString(), fontChoice, customWallpaperUri.orEmpty()).joinToString("\t")
                     customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) }.toSet() + record
                     prefs.edit().putStringSet("customThemes", customThemes).apply()
                     savingThemeName = false
@@ -1371,6 +1380,8 @@ private fun launchApp(context: android.content.Context, app: LaunchableApp, onLa
         } catch (_: Exception) {
             Toast.makeText(context, "Impossibile aprire l'app", Toast.LENGTH_SHORT).show()
         }
+    } else {
+        Toast.makeText(context, "Nessuna attività di avvio disponibile per questa app", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1423,8 +1434,8 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
             modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
-            Text(app.label, color = fg, fontSize = 15.sp, maxLines = 1)
-            Text(app.packageName, color = muted, fontSize = 10.sp, maxLines = 1)
+            Text(app.label, color = fg, fontSize = 15.sp, maxLines = 2, softWrap = true, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(app.packageName, color = muted, fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         if (favorite) Text("●", color = Color(0xFFD71920), fontSize = 8.sp)
         else Text("↗", color = muted, fontSize = 14.sp)
