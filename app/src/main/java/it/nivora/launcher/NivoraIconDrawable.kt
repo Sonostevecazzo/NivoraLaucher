@@ -25,7 +25,8 @@ internal class NivoraIconDrawable(
     private enum class Glyph {
         SHOPPING, TV, ANDROID, ANIMAL, MUSIC, FOLDER, SHIELD, MAIL, AUTH, CAR,
         BOLT, WALLET, BROWSER, BITCOIN, CALCULATOR, CALENDAR, CAMERA, AI, ID,
-        PHONE, CONTACTS, MESSAGE, VIDEO, MAP, SETTINGS, CLOCK, PHOTOS, BANK, GENERIC
+        PHONE, CONTACTS, MESSAGE, VIDEO, MAP, SETTINGS, CLOCK, PHOTOS, BANK,
+        CLOUD, CODE, HEALTH, BOOK, GENERIC
     }
 
     private val appLabel = label.trim()
@@ -60,6 +61,49 @@ internal class NivoraIconDrawable(
         canvas.drawRoundRect(tile, 27f, 27f, edgePaint)
 
         when (glyph) {
+            Glyph.CLOUD -> {
+                val p = Path().apply {
+                    moveTo(23f, 65f)
+                    cubicTo(18f, 60f, 20f, 50f, 29f, 48f)
+                    cubicTo(30f, 35f, 40f, 30f, 49f, 36f)
+                    cubicTo(59f, 25f, 76f, 34f, 74f, 47f)
+                    cubicTo(84f, 48f, 85f, 60f, 78f, 65f)
+                    close()
+                }
+                canvas.drawPath(p, ink)
+                line(canvas, 31f, 66f, 69f, 66f)
+            }
+            Glyph.CODE -> {
+                line(canvas, 40f, 34f, 27f, 50f)
+                line(canvas, 27f, 50f, 40f, 66f)
+                line(canvas, 60f, 34f, 73f, 50f)
+                line(canvas, 73f, 50f, 60f, 66f)
+                line(canvas, 56f, 29f, 44f, 71f)
+            }
+            Glyph.HEALTH -> {
+                dot(canvas, 50f, 50f, 29f)
+                line(canvas, 50f, 34f, 50f, 66f)
+                line(canvas, 34f, 50f, 66f, 50f)
+            }
+            Glyph.BOOK -> {
+                val left = Path().apply {
+                    moveTo(49f, 31f)
+                    cubicTo(40f, 25f, 28f, 25f, 20f, 30f)
+                    lineTo(20f, 72f)
+                    cubicTo(30f, 68f, 40f, 69f, 49f, 76f)
+                    close()
+                }
+                val right = Path().apply {
+                    moveTo(51f, 31f)
+                    cubicTo(60f, 25f, 72f, 25f, 80f, 30f)
+                    lineTo(80f, 72f)
+                    cubicTo(70f, 68f, 60f, 69f, 51f, 76f)
+                    close()
+                }
+                canvas.drawPath(left, ink)
+                canvas.drawPath(right, ink)
+                line(canvas, 50f, 31f, 50f, 76f)
+            }
             Glyph.SHOPPING -> {
                 canvas.drawRoundRect(RectF(27f, 38f, 73f, 76f), 7f, 7f, ink)
                 val p = Path().apply { moveTo(38f, 40f); cubicTo(38f, 18f, 62f, 18f, 62f, 40f) }
@@ -246,7 +290,17 @@ internal class NivoraIconDrawable(
             val s = "$label $pkg"
             fun has(vararg terms: String) = terms.any { s.contains(it) }
             return when {
-                has("amazon", "shopping", "ebay", "shop", "marketplace") -> Glyph.SHOPPING
+                // Map the common applications in the drawer to a meaningful monochrome symbol.
+                has("cloudflare") -> Glyph.SHIELD
+                has("dropbox", "google drive", "drive", "cloud") -> Glyph.CLOUD
+                has("codespaces", "developer tools", "programming", "visual studio code") -> Glyph.CODE
+                has("geofence") -> Glyph.MAP
+                has("doctolib", "medical", "healthcare", "clinic", "doctor") -> Glyph.HEALTH
+                has("ebook", "e-book", "kindle", "book reader", "books") -> Glyph.BOOK
+                has("claude", "deepseek") -> Glyph.AI
+                has("comet") -> Glyph.BROWSER
+                has("creative studio") -> Glyph.PHOTOS
+                has("deliveroo", "amazon", "shopping", "ebay", "shop", "marketplace") -> Glyph.SHOPPING
                 has("amy 4k", "iptv", "smarttv", "androidtv", "television") -> Glyph.TV
                 label == "android" || pkg.contains("android") && label.contains("android") -> Glyph.ANDROID
                 has("animalingua", "animal", "pet", "paw") -> Glyph.ANIMAL
@@ -263,17 +317,18 @@ internal class NivoraIconDrawable(
                 has("calcolatrice", "calculator") -> Glyph.CALCULATOR
                 has("calendar", "calendario", "agenda") -> Glyph.CALENDAR
                 has("camera", "fotocamera") -> Glyph.CAMERA
-                has("chatgpt", "gemini", "copilot", "bixby", "assistant", "ai ") -> Glyph.AI
+                has("chatgpt", "gemini", "copilot", "bixby", "assistant", "ai ", "claude", "deepseek") -> Glyph.AI
                 has("cieid", "cie id", "identity", "identity card", "carta identità", "carta identita", "spid") -> Glyph.ID
                 has("telefono", "phone", "dialer") -> Glyph.PHONE
                 has("contacts", "contatti", "rubrica") -> Glyph.CONTACTS
                 has("messages", "messaggi", "messaging", "whatsapp", "telegram", "signal", "chat") -> Glyph.MESSAGE
                 has("youtube", "video", "netflix", "prime video", "disney") -> Glyph.VIDEO
-                has("maps", "mappe", "google maps", "navigazione", "waze") -> Glyph.MAP
+                has("maps", "mappe", "google maps", "navigazione", "waze", "geofence") -> Glyph.MAP
                 has("settings", "impostazioni") -> Glyph.SETTINGS
                 has("clock", "orologio", "alarm", "sveglia") -> Glyph.CLOCK
                 has("gallery", "photos", "galleria", "foto") -> Glyph.PHOTOS
                 has("revolut", "bank", "banca", "banking", "trade republic", "postepay", "intesa", "unicredit") -> Glyph.BANK
+                has("eni plenitude", "plenitude", "eolo", "energy", "energia", "electricity", "utility") -> Glyph.BOLT
                 else -> Glyph.GENERIC
             }
         }
