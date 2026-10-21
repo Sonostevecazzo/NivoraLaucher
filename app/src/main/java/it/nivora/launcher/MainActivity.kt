@@ -78,6 +78,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.random.Random
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
