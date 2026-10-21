@@ -23,6 +23,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,6 +67,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -83,6 +85,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.random.Random
+import kotlin.math.abs
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
@@ -1075,13 +1078,22 @@ private fun OfflineArcade(accent: Color, fg: Color, panel: Color, dark: Boolean,
 
 @Composable
 private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("nivora_preferences", 0) }
+    var bestScore by remember { mutableIntStateOf(prefs.getInt("snakeBest", 0)) }
     var state by remember { mutableStateOf(SnakeState()) }
     var direction by remember { mutableStateOf(SnakeDirection.RIGHT) }
     var running by remember { mutableStateOf(false) }
+    LaunchedEffect(state.score) {
+        if (state.score > bestScore) {
+            bestScore = state.score
+            prefs.edit().putInt("snakeBest", bestScore).apply()
+        }
+    }
     LaunchedEffect(running, state.over) {
         if (running && !state.over) {
             while (true) {
-                delay(175)
+                delay((175L - (state.score / 50) * 12L).coerceAtLeast(80L))
                 state = advanceSnake(state, direction)
                 if (state.over) { running = false; break }
             }
@@ -1091,11 +1103,35 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
         Column(Modifier.weight(1f)) {
             Text("PUNTEGGIO", color = fg.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.5.sp)
             Text(state.score.toString(), color = palette.accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
+            Text("LIVELLO ${state.score / 50 + 1}  ·  RECORD $bestScore", color = fg.copy(alpha = 0.55f), fontSize = 10.sp)
         }
         TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = palette.accent) }
         TextButton(onClick = { state = SnakeState(); direction = SnakeDirection.RIGHT; running = false }) { Text("RESET", color = fg) }
     }
-    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)) {
+    androidx.compose.foundation.Canvas(
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)
+            .pointerInput(direction) {
+                var dragX = 0f
+                var dragY = 0f
+                detectDragGestures(
+                    onDragStart = { dragX = 0f; dragY = 0f },
+                    onDragEnd = {
+                        if (abs(dragX) > abs(dragY) && abs(dragX) > 24.dp.toPx()) {
+                            val next = if (dragX < 0f) SnakeDirection.LEFT else SnakeDirection.RIGHT
+                            if (next != SnakeDirection.LEFT || direction != SnakeDirection.RIGHT) {
+                                if (next != SnakeDirection.RIGHT || direction != SnakeDirection.LEFT) direction = next
+                            }
+                        } else if (abs(dragY) > 24.dp.toPx()) {
+                            val next = if (dragY < 0f) SnakeDirection.UP else SnakeDirection.DOWN
+                            if (next != SnakeDirection.UP || direction != SnakeDirection.DOWN) {
+                                if (next != SnakeDirection.DOWN || direction != SnakeDirection.UP) direction = next
+                            }
+                        }
+                    },
+                    onDrag = { change, amount -> dragX += amount.x; dragY += amount.y; change.consume() }
+                )
+            }
+    ) {
         val cell = minOf(size.width / 16f, size.height / 22f)
         val left = (size.width - cell * 16) / 2f
         val top = (size.height - cell * 22) / 2f
@@ -1120,7 +1156,7 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
             OutlinedButton(onClick = { if (direction != SnakeDirection.LEFT) direction = SnakeDirection.RIGHT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("→", color = palette.accent, fontSize = 20.sp) }
         }
     }
-    Text("Comandi a schermo · nessuna connessione richiesta", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
+    Text("Scorri sul campo o usa le frecce · la velocità cresce con il punteggio · offline", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
 }
 
 internal fun advanceSnake(state: SnakeState, direction: SnakeDirection): SnakeState {
@@ -1191,12 +1227,21 @@ internal fun lockBlock(state: BlockState): BlockState {
 
 @Composable
 private fun BlockfallGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("nivora_preferences", 0) }
+    var bestScore by remember { mutableIntStateOf(prefs.getInt("blockfallBest", 0)) }
     var state by remember { mutableStateOf(BlockState()) }
     var running by remember { mutableStateOf(false) }
+    LaunchedEffect(state.score) {
+        if (state.score > bestScore) {
+            bestScore = state.score
+            prefs.edit().putInt("blockfallBest", bestScore).apply()
+        }
+    }
     LaunchedEffect(running, state.over) {
         if (running && !state.over) {
             while (true) {
-                delay(480)
+                delay((480L - (state.score / 250) * 35L).coerceAtLeast(150L))
                 state = moveBlock(state, dy = 1)
                 if (state.over) { running = false; break }
             }
@@ -1206,11 +1251,38 @@ private fun BlockfallGame(palette: ArcadePalette, fg: Color, modifier: Modifier 
         Column(Modifier.weight(1f)) {
             Text("PUNTEGGIO", color = fg.copy(alpha = 0.55f), fontSize = 10.sp, letterSpacing = 1.5.sp)
             Text(state.score.toString(), color = palette.accent, fontSize = 25.sp, fontWeight = FontWeight.Light)
+            Text("LIVELLO ${state.score / 250 + 1}  ·  RECORD $bestScore", color = fg.copy(alpha = 0.55f), fontSize = 10.sp)
         }
         TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = palette.accent) }
         TextButton(onClick = { state = BlockState(); running = false }) { Text("RESET", color = fg) }
     }
-    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)) {
+    androidx.compose.foundation.Canvas(
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)
+            .pointerInput(Unit) {
+                var dragX = 0f
+                var dragY = 0f
+                detectDragGestures(
+                    onDragStart = { dragX = 0f; dragY = 0f },
+                    onDragEnd = {
+                        val threshold = 24.dp.toPx()
+                        if (abs(dragX) > abs(dragY) && abs(dragX) > threshold) {
+                            val steps = (abs(dragX) / threshold).toInt().coerceIn(1, 4)
+                            repeat(steps) { state = moveBlock(state, dx = if (dragX < 0f) -1 else 1) }
+                        } else if (abs(dragY) > threshold) {
+                            if (dragY < 0f) state = moveBlock(state, rotate = true)
+                            else {
+                                val steps = (abs(dragY) / threshold).toInt().coerceIn(1, 8)
+                                repeat(steps) { state = moveBlock(state, dy = 1) }
+                            }
+                            if (state.over) running = false
+                        } else {
+                            state = moveBlock(state, rotate = true)
+                        }
+                    },
+                    onDrag = { change, amount -> dragX += amount.x; dragY += amount.y; change.consume() }
+                )
+            }
+    ) {
         val cell = minOf(size.width / 10f, size.height / 18f)
         val left = (size.width - cell * 10) / 2f
         val top = (size.height - cell * 18) / 2f
@@ -1233,7 +1305,8 @@ private fun BlockfallGame(palette: ArcadePalette, fg: Color, modifier: Modifier 
         OutlinedButton(onClick = { state = moveBlock(state, dx = -1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("←", color = palette.accent, fontSize = 22.sp) }
         OutlinedButton(onClick = { state = moveBlock(state, rotate = true) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↻", color = palette.accent, fontSize = 22.sp) }
         OutlinedButton(onClick = { state = moveBlock(state, dx = 1) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("→", color = palette.accent, fontSize = 22.sp) }
-        OutlinedButton(onClick = { state = moveBlock(state, hardDrop = true); if (state.over) running = false }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↓↓", color = palette.accent, fontSize = 18.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, dy = 1); if (state.over) running = false }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("↓", color = palette.accent, fontSize = 22.sp) }
+        OutlinedButton(onClick = { state = moveBlock(state, hardDrop = true); if (state.over) running = false }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(0.dp)) { Text("⇊", color = palette.accent, fontSize = 18.sp) }
     }
     Text("Sinistra · ruota · destra · caduta rapida", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
 }
