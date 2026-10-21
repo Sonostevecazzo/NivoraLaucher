@@ -216,9 +216,9 @@ private fun NivoraApp() {
                             is Set<*> -> {
                                 val strings = value.filterIsInstance<String>().map { record ->
                                     if (key == "customThemes") {
-                                        val fields = record.split('\\t').toMutableList()
+                                        val fields = record.split('\t').toMutableList()
                                         if (fields.size >= 7) fields[6] = ""
-                                        fields.joinToString("\\t")
+                                        fields.joinToString("\t")
                                     } else record
                                 }
                                 saved.put(key, JSONArray(strings))
@@ -253,23 +253,40 @@ private fun NivoraApp() {
                 val keys = saved.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
-                    if (key == "homeWidgetIds" || key == "customWallpaperUri") continue
-                    when (val value = saved.opt(key)) {
-                        is String -> editor.putString(key, value)
-                        is Boolean -> editor.putBoolean(key, value)
-                        is JSONArray -> {
+                    when (key) {
+                        "dark", "grid", "labels", "compact", "showLogo", "monochromeIcons" -> {
+                            val value = saved.opt(key)
+                            require(value is Boolean) { "Tipo non valido per la preferenza $key." }
+                            editor.putBoolean(key, value)
+                        }
+                        "columns", "iconSize" -> {
+                            val value = saved.opt(key)
+                            require(value is Number) { "Tipo non valido per la preferenza $key." }
+                            editor.putInt(key, value.toInt())
+                        }
+                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy" -> {
+                            val value = saved.opt(key)
+                            require(value is String) { "Tipo non valido per la preferenza $key." }
+                            editor.putString(key, value)
+                        }
+                        "favorites", "customThemes" -> {
+                            val value = saved.opt(key)
+                            require(value is JSONArray) { "Tipo non valido per la preferenza $key." }
                             val values = linkedSetOf<String>()
-                            for (i in 0 until value.length()) if (!value.isNull(i)) values.add(value.getString(i))
+                            for (i in 0 until value.length()) {
+                                require(!value.isNull(i)) { "Elemento vuoto nella preferenza $key." }
+                                var record = value.getString(i)
+                                if (key == "customThemes") {
+                                    val fields = record.split('	').toMutableList()
+                                    if (fields.size >= 7) fields[6] = ""
+                                    record = fields.joinToString("	")
+                                }
+                                values.add(record)
+                            }
                             editor.putStringSet(key, values)
                         }
-                        is Number -> {
-                            val number = value.toDouble()
-                            if (number.isFinite() && number % 1.0 == 0.0) {
-                                val longValue = value.toLong()
-                                if (longValue in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) editor.putInt(key, longValue.toInt())
-                                else editor.putLong(key, longValue)
-                            } else editor.putFloat(key, number.toFloat())
-                        }
+                        // Widget IDs and content URIs are local to this device and are deliberately not restored.
+                        else -> Unit
                     }
                 }
                 editor.apply()
