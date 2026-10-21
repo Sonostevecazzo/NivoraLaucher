@@ -1,5 +1,8 @@
 package it.nivora.launcher
 
+import android.app.Activity
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -37,6 +40,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -106,6 +110,13 @@ private fun NivoraApp() {
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var settingsPage by remember { mutableStateOf("Menu") }
+    val appWidgetManager = remember(context) { AppWidgetManager.getInstance(context) }
+    val appWidgetHost = remember(context) { AppWidgetHost(context, 5731) }
+    var homeWidgetIds by remember { mutableStateOf(prefs.getStringSet("homeWidgetIds", emptySet())?.mapNotNull { it.toIntOrNull() } ?: emptyList()) }
+    var pendingWidgetId by remember { mutableIntStateOf(-1) }
+    var savingThemeName by remember { mutableStateOf(false) }
+    var newThemeName by remember { mutableStateOf("") }
+    var customThemes by remember { mutableStateOf(prefs.getStringSet("customThemes", emptySet())?.toSet() ?: emptySet()) }
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet")
@@ -130,7 +141,7 @@ private fun NivoraApp() {
     ) {
         when {
             showArcade -> showArcade = false
-            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
+            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
@@ -141,6 +152,60 @@ private fun NivoraApp() {
             try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
             customWallpaperUri = uri.toString()
             prefs.edit().putString("customWallpaperUri", uri.toString()).apply()
+        }
+    }
+
+    val addWidgetId: (Int) -> Unit = { widgetId ->
+        val updated = (homeWidgetIds + widgetId).distinct()
+        homeWidgetIds = updated
+        prefs.edit().putStringSet("homeWidgetIds", updated.map { it.toString() }.toSet()).apply()
+    }
+
+    val configureWidget = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val widgetId = pendingWidgetId
+        if (widgetId >= 0) {
+            if (result.resultCode == Activity.RESULT_OK) addWidgetId(widgetId)
+            else appWidgetHost.deleteAppWidgetId(widgetId)
+        }
+        pendingWidgetId = -1
+    }
+
+    val pickWidget = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val widgetId = result.data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidgetId) ?: pendingWidgetId
+        if (result.resultCode == Activity.RESULT_OK && widgetId >= 0) {
+            pendingWidgetId = widgetId
+            val configureComponent = appWidgetManager.getAppWidgetInfo(widgetId)?.configure
+            if (configureComponent != null) {
+                val configureIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                    .setComponent(configureComponent)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                configureWidget.launch(configureIntent)
+            } else {
+                addWidgetId(widgetId)
+                pendingWidgetId = -1
+            }
+        } else {
+            if (pendingWidgetId >= 0) appWidgetHost.deleteAppWidgetId(pendingWidgetId)
+            pendingWidgetId = -1
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(appWidgetHost, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> runCatching { appWidgetHost.startListening() }
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> runCatching { appWidgetHost.stopListening() }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            runCatching { appWidgetHost.startListening() }
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            runCatching { appWidgetHost.stopListening() }
         }
     }
 
@@ -199,7 +264,6 @@ private fun NivoraApp() {
     }
 
     // Refresh the catalog when this Home activity resumes after another app, Settings or an install.
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             refreshLaunchableApps()
@@ -459,7 +523,7 @@ private fun NivoraApp() {
                             }
                         }
                         Spacer(Modifier.weight(if (settingsPage == "Menu") 0f else 1f))
-                        IconButton(onClick = { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
+                        IconButton(onClick = { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
                             Text(if (settingsPage == "Menu") "×" else "‹", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light)
                         }
                     }
@@ -573,7 +637,7 @@ private fun NivoraApp() {
                     }
                     Spacer(Modifier.height(12.dp))
                     if (settingsPage != "Menu") {
-                        TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) "Temi" else "Menu" }, modifier = Modifier.fillMaxWidth()) { Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) "Torna ai temi" else "Torna alle impostazioni", color = accent) }
+                        TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Temi" else "Menu" }, modifier = Modifier.fillMaxWidth()) { Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Torna ai temi" else "Torna alle impostazioni", color = accent) }
                     } else {
                         Button(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) { Text("FATTO", letterSpacing = 1.2.sp) }
                     }
