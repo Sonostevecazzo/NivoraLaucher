@@ -862,7 +862,7 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { view -> view.setImageDrawable(iconForDisplay(app.icon, iconTint)); view.clearColorFilter() },
+                update = { view -> view.setImageDrawable(iconForDisplay(app, iconTint)); view.clearColorFilter() },
                 modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
@@ -880,7 +880,7 @@ private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: 
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { view -> view.setImageDrawable(iconForDisplay(app.icon, iconTint)); view.clearColorFilter() },
+            update = { view -> view.setImageDrawable(iconForDisplay(app, iconTint)); view.clearColorFilter() },
             modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
