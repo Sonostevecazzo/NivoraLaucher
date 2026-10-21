@@ -126,7 +126,7 @@ private fun NivoraApp() {
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet", "Obsidian", "Sage", "Bronze", "Pearl", "Midnight")
-    val themeSettingsPages = themeSettingsPages
+    val themeSettingsPages = setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")
     val advancedSettingsPages = setOf("Informazioni app", "Backup & Ripristino", "Ultime modifiche", "Informativa sulla privacy", "Termini di servizio", "Licenze open source")
     var themePreset by remember {
         mutableStateOf((prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass")
