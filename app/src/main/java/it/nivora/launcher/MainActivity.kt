@@ -119,7 +119,7 @@ private fun NivoraApp() {
     var customThemes by remember { mutableStateOf(prefs.getStringSet("customThemes", emptySet())?.toSet() ?: emptySet()) }
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
-    val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet")
+    val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet", "Obsidian", "Sage", "Bronze", "Pearl", "Midnight")
     var themePreset by remember {
         mutableStateOf((prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass")
             .let { saved -> if (saved in availableThemes) saved else "Mono Glass" })
@@ -292,6 +292,11 @@ private fun NivoraApp() {
         "Ember" -> Color(0xFFD99A83)
         "Moss" -> Color(0xFF9EAF96)
         "Violet" -> Color(0xFFB5A5D5)
+        "Sage" -> Color(0xFF9DBCA4)
+        "Bronze" -> Color(0xFFD6A06B)
+        "Pearl" -> Color(0xFFD8D2C7)
+        "Midnight" -> Color(0xFF8CA8E8)
+        "Obsidian" -> Color(0xFF9DA3AB)
         else -> Color(0xFFB8C0C8)
     }
     val bg = when (wallpaper) {
@@ -305,6 +310,11 @@ private fun NivoraApp() {
             "Ember" -> if (dark) Color(0xFF211817) else Color(0xFFF5ECE8)
             "Moss" -> if (dark) Color(0xFF151B16) else Color(0xFFEEF2EB)
             "Violet" -> if (dark) Color(0xFF1A1721) else Color(0xFFF0ECF5)
+            "Sage" -> if (dark) Color(0xFF142019) else Color(0xFFECF3ED)
+            "Bronze" -> if (dark) Color(0xFF251C16) else Color(0xFFF6EBDD)
+            "Pearl" -> if (dark) Color(0xFF202124) else Color(0xFFF8F5EF)
+            "Midnight" -> if (dark) Color(0xFF10192B) else Color(0xFFE9EFFB)
+            "Obsidian" -> if (dark) Color(0xFF090A0C) else Color(0xFFE7E9EC)
             else -> if (dark) Color(0xFF101214) else Color(0xFFF1F2F2)
         }
     }
@@ -586,6 +596,7 @@ private fun NivoraApp() {
                                 Text("SCOPRI", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                                 SettingsNavigationItem("Temi già pronti", "Scegli tra palette curate con un tocco", "✧", fg, muted, accent) { settingsPage = "Temi già pronti" }
                                 SettingsNavigationItem("Temi della community", "Esplora idee e contributi open source", "♡", fg, muted, accent) { settingsPage = "Temi della community" }
+                                SettingsNavigationItem("Sfondi", "Sfondi integrati, astratti e personalizzati", "▧", fg, muted, accent) { settingsPage = "Sfondi" }
                             }
                             "Crea tema", "Modifica tema corrente" -> {
                                 SettingsSection(if (settingsPage == "Crea tema") "Crea tema" else "Modifica il tema corrente", "Le modifiche vengono salvate automaticamente sul dispositivo.", accent) {
@@ -603,10 +614,78 @@ private fun NivoraApp() {
                                 }
                             }
                             "I miei temi" -> {
-                                SettingsSection("I miei temi", "Le preferenze di Nivora sono conservate localmente sul dispositivo.", accent) {
-                                    Text("Tema attivo: $themePreset", color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                    Text("Il tema attivo include la palette, lo stile dello sfondo e le opzioni di visualizzazione. Puoi modificarlo senza perdere le altre preferenze.", color = muted, fontSize = 12.sp)
+                                SettingsSection("I miei temi", "Salva combinazioni personali e riapplicale in qualsiasi momento. I temi restano sul dispositivo.", accent) {
+                                    Text("Tema attivo: $themePreset · $wallpaper", color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                    OutlinedButton(onClick = { newThemeName = ""; savingThemeName = true }, modifier = Modifier.fillMaxWidth()) { Text("＋  SALVA CONFIGURAZIONE CORRENTE") }
+                                    if (customThemes.isEmpty()) {
+                                        Text("Non hai ancora salvato temi personali.", color = muted, fontSize = 12.sp)
+                                    } else {
+                                        customThemes.sortedBy { it.substringBefore('\t').lowercase(Locale.ROOT) }.forEach { record ->
+                                            val values = record.split('\t')
+                                            val title = values.firstOrNull().orEmpty().ifBlank { "Tema personale" }
+                                            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(title, color = fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                                    Text(values.getOrNull(1).orEmpty() + " · " + values.getOrNull(2).orEmpty(), color = muted, fontSize = 11.sp)
+                                                }
+                                                TextButton(onClick = {
+                                                    if (values.size >= 5) {
+                                                        themePreset = values[1].takeIf { it in availableThemes } ?: "Mono Glass"
+                                                        wallpaper = values[2]
+                                                        dark = values[3].toBoolean()
+                                                        monochromeIcons = values[4].toBoolean()
+                                                        prefs.edit().putString("themePreset", themePreset).putString("wallpaper", wallpaper)
+                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).apply()
+                                                    }
+                                                }) { Text("Applica", color = accent) }
+                                                TextButton(onClick = {
+                                                    customThemes = customThemes - record
+                                                    prefs.edit().putStringSet("customThemes", customThemes).apply()
+                                                }) { Text("×", color = muted, fontSize = 18.sp) }
+                                            }
+                                        }
+                                    }
                                     OutlinedButton(onClick = { settingsPage = "Modifica tema corrente" }, modifier = Modifier.fillMaxWidth()) { Text("Modifica tema attivo") }
+                                }
+                            }
+                            "Sfondi" -> {
+                                val choices = listOf("OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset", "Aurora", "Nebula", "Orbit", "Mesh", "Dunes", "Ocean", "Forest")
+                                SettingsSection("Sfondi integrati", "Scegli una superficie disegnata per Nivora oppure aggiungi una tua foto.", accent) {
+                                    choices.chunked(2).forEach { rowChoices ->
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            rowChoices.forEach { name ->
+                                                val preview = when (name) {
+                                                    "Aurora" -> Brush.linearGradient(listOf(Color(0xFF102A43), Color(0xFF246B78), Color(0xFF8D6A92)))
+                                                    "Nebula" -> Brush.linearGradient(listOf(Color(0xFF1B1742), Color(0xFF662D68), Color(0xFF121827)))
+                                                    "Orbit" -> Brush.linearGradient(listOf(Color(0xFF09131F), Color(0xFF27465D)))
+                                                    "Mesh" -> Brush.linearGradient(listOf(Color(0xFF1D2634), Color(0xFF40536A)))
+                                                    "Dunes" -> Brush.linearGradient(listOf(Color(0xFF3B2828), Color(0xFFC28C69)))
+                                                    "Ocean" -> Brush.linearGradient(listOf(Color(0xFF062E43), Color(0xFF1D8191)))
+                                                    "Forest" -> Brush.linearGradient(listOf(Color(0xFF0B221E), Color(0xFF476F50)))
+                                                    "Sunset" -> Brush.linearGradient(listOf(Color(0xFF4B253F), Color(0xFFE5A16C)))
+                                                    "Gradient" -> Brush.linearGradient(listOf(Color(0xFF242833), Color(0xFF090A0A)))
+                                                    "Warm" -> Brush.linearGradient(listOf(Color(0xFF2A211E), Color(0xFF6D4D40)))
+                                                    "Paper" -> Brush.linearGradient(listOf(Color(0xFFF7F7F2), Color(0xFFD8D8D1)))
+                                                    "Graphite" -> Brush.linearGradient(listOf(Color(0xFF202326), Color(0xFF42484C)))
+                                                    else -> Brush.linearGradient(listOf(Color(0xFF101214), Color(0xFF050607)))
+                                                }
+                                                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable {
+                                                    wallpaper = name
+                                                    customWallpaperUri = null
+                                                    customWallpaperBitmap = null
+                                                    prefs.edit().putString("wallpaper", name).remove("customWallpaperUri").apply()
+                                                }.border(1.dp, if (wallpaper == name && customWallpaperUri == null) accent else muted.copy(alpha = 0.18f), RoundedCornerShape(14.dp)).padding(7.dp)) {
+                                                    Box(Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(10.dp)).background(preview), contentAlignment = Alignment.TopEnd) {
+                                                        if (wallpaper == name && customWallpaperUri == null) Text("✓", color = Color.White, modifier = Modifier.padding(6.dp), fontSize = 16.sp)
+                                                    }
+                                                    Text(name, color = fg, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp, start = 3.dp, bottom = 3.dp), maxLines = 1)
+                                                }
+                                            }
+                                            repeat(2 - rowChoices.size) { Spacer(Modifier.weight(1f)) }
+                                        }
+                                    }
+                                    OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale") }
+                                    if (customWallpaperUri != null) OutlinedButton(onClick = { customWallpaperUri = null; customWallpaperBitmap = null; prefs.edit().remove("customWallpaperUri").apply() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Rimuovi foto personale") }
                                 }
                             }
                             "Temi della community" -> {
@@ -1146,7 +1225,12 @@ private fun ThemePresetPicker(selected: String, accent: Color, onSelect: (String
         Triple("Frost", Color(0xFF9FC8D8), "Freddo e pulito"),
         Triple("Ember", Color(0xFFD99A83), "Caldo e morbido"),
         Triple("Moss", Color(0xFF9EAF96), "Naturale"),
-        Triple("Violet", Color(0xFFB5A5D5), "Cromatico")
+        Triple("Violet", Color(0xFFB5A5D5), "Cromatico"),
+        Triple("Obsidian", Color(0xFF9DA3AB), "Nero profondo"),
+        Triple("Sage", Color(0xFF9DBCA4), "Verde salvia"),
+        Triple("Bronze", Color(0xFFD6A06B), "Bronzo caldo"),
+        Triple("Pearl", Color(0xFFD8D2C7), "Perla morbida"),
+        Triple("Midnight", Color(0xFF8CA8E8), "Notte blu")
     )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         themes.chunked(3).forEach { rowThemes ->
