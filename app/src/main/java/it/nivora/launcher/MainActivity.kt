@@ -81,6 +81,8 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -124,6 +126,8 @@ private fun NivoraApp() {
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet", "Obsidian", "Sage", "Bronze", "Pearl", "Midnight")
+    val themeSettingsPages = themeSettingsPages
+    val advancedSettingsPages = setOf("Informazioni app", "Backup & Ripristino", "Ultime modifiche", "Informativa sulla privacy", "Termini di servizio", "Licenze open source")
     var themePreset by remember {
         mutableStateOf((prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass")
             .let { saved -> if (saved in availableThemes) saved else "Mono Glass" })
@@ -145,7 +149,14 @@ private fun NivoraApp() {
     ) {
         when {
             showArcade -> showArcade = false
-            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
+            showSettings -> {
+                when {
+                    settingsPage in themeSettingsPages -> settingsPage = "Temi"
+                    settingsPage in advancedSettingsPages -> settingsPage = "Avanzate"
+                    settingsPage != "Menu" -> settingsPage = "Menu"
+                    else -> showSettings = false
+                }
+            }
             query.isNotBlank() -> query = ""
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
@@ -192,6 +203,86 @@ private fun NivoraApp() {
         } else {
             if (pendingWidgetId >= 0) appWidgetHost.deleteAppWidgetId(pendingWidgetId)
             pendingWidgetId = -1
+        }
+    }
+
+    val exportSettingsBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            val result = runCatching {
+                val saved = JSONObject()
+                prefs.all.forEach { (key, value) ->
+                    if (key != "homeWidgetIds" && key != "customWallpaperUri") {
+                        when (value) {
+                            is Set<*> -> {
+                                val strings = value.filterIsInstance<String>().map { record ->
+                                    if (key == "customThemes") {
+                                        val fields = record.split('\\t').toMutableList()
+                                        if (fields.size >= 7) fields[6] = ""
+                                        fields.joinToString("\\t")
+                                    } else record
+                                }
+                                saved.put(key, JSONArray(strings))
+                            }
+                            is String, is Boolean, is Number -> saved.put(key, value)
+                        }
+                    }
+                }
+                val root = JSONObject()
+                    .put("format", "nivora-preferences")
+                    .put("schemaVersion", 1)
+                    .put("appVersion", BuildConfig.VERSION_NAME)
+                    .put("createdAt", LocalDateTime.now().toString())
+                    .put("preferences", saved)
+                val stream = context.contentResolver.openOutputStream(uri) ?: error("Impossibile aprire il file scelto.")
+                stream.use { it.write(root.toString(2).toByteArray(Charsets.UTF_8)) }
+            }
+            if (result.isSuccess) Toast.makeText(context, "Backup Nivora esportato", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, "Backup non salvato: ${result.exceptionOrNull()?.message ?: "errore di scrittura"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val importSettingsBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val result = runCatching {
+                val raw = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    ?: error("Impossibile leggere il file selezionato.")
+                val root = JSONObject(raw)
+                require(root.optString("format") == "nivora-preferences") { "Questo file non è un backup Nivora valido." }
+                val saved = root.optJSONObject("preferences") ?: error("Nel backup mancano le preferenze.")
+                val editor = prefs.edit().clear()
+                val keys = saved.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    if (key == "homeWidgetIds" || key == "customWallpaperUri") continue
+                    when (val value = saved.opt(key)) {
+                        is String -> editor.putString(key, value)
+                        is Boolean -> editor.putBoolean(key, value)
+                        is JSONArray -> {
+                            val values = linkedSetOf<String>()
+                            for (i in 0 until value.length()) if (!value.isNull(i)) values.add(value.getString(i))
+                            editor.putStringSet(key, values)
+                        }
+                        is Number -> {
+                            val number = value.toDouble()
+                            if (number.isFinite() && number % 1.0 == 0.0) {
+                                val longValue = value.toLong()
+                                if (longValue in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) editor.putInt(key, longValue.toInt())
+                                else editor.putLong(key, longValue)
+                            } else editor.putFloat(key, number.toFloat())
+                        }
+                    }
+                }
+                editor.apply()
+            }
+            if (result.isSuccess) {
+                homeWidgetIds.forEach { widgetId -> runCatching { appWidgetHost.deleteAppWidgetId(widgetId) } }
+                homeWidgetIds = emptyList()
+                showSettings = false
+                Toast.makeText(context, "Backup ripristinato. Nivora verrà ricaricato.", Toast.LENGTH_SHORT).show()
+                (context as? Activity)?.recreate()
+            } else {
+                Toast.makeText(context, "Backup non valido: ${result.exceptionOrNull()?.message ?: "errore di lettura"}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -593,8 +684,19 @@ private fun NivoraApp() {
                 Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 20.dp)) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (settingsPage != "Menu") {
-                            TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Temi" else "Menu" }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
-                                Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "‹  TEMI" else "‹  IMPOSTAZIONI", color = accent, fontSize = 13.sp, letterSpacing = 1.sp)
+                            TextButton(onClick = {
+                                settingsPage = when {
+                                    settingsPage in themeSettingsPages -> "Temi"
+                                    settingsPage in advancedSettingsPages -> "Avanzate"
+                                    else -> "Menu"
+                                }
+                            }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
+                                Text(
+                                    if (settingsPage in themeSettingsPages) "‹  TEMI"
+                                    else if (settingsPage in advancedSettingsPages) "‹  AVANZATE"
+                                    else "‹  IMPOSTAZIONI",
+                                    color = accent, fontSize = 13.sp, letterSpacing = 1.sp
+                                )
                             }
                         } else {
                             Column(Modifier.weight(1f)) {
@@ -603,7 +705,14 @@ private fun NivoraApp() {
                             }
                         }
                         if (settingsPage != "Menu") Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
+                        IconButton(onClick = {
+                            when {
+                                settingsPage in themeSettingsPages -> settingsPage = "Temi"
+                                settingsPage in advancedSettingsPages -> settingsPage = "Avanzate"
+                                settingsPage != "Menu" -> settingsPage = "Menu"
+                                else -> showSettings = false
+                            }
+                        }) {
                             Text(if (settingsPage == "Menu") "×" else "‹", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light)
                         }
                     }
@@ -621,7 +730,8 @@ private fun NivoraApp() {
                                 Text("ALTRO", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                                 SettingsNavigationItem("Aiuto e feedback", "Informazioni e supporto per Nivora", "?", fg, muted, accent) { settingsPage = "Aiuto e feedback" }
                                 SettingsNavigationItem("Community", "Contribuisci e scopri il progetto", "♡", fg, muted, accent) { settingsPage = "Community" }
-                                SettingsNavigationItem("Avanzate", "Diagnostica e ripristino delle preferenze", "•••", fg, muted, accent) { settingsPage = "Avanzate" }
+                                SettingsNavigationItem("Nivora Lab", "Widget, giochi offline e funzioni sperimentali", "✦", fg, muted, accent) { settingsPage = "Nivora Lab" }
+                                SettingsNavigationItem("Avanzate", "Backup, privacy, app e ripristino", "•••", fg, muted, accent) { settingsPage = "Avanzate" }
                                 Spacer(Modifier.height(12.dp))
                                 Text("NIVORA LAUNCHER  •  VERSIONE ${BuildConfig.VERSION_NAME}", color = muted.copy(alpha = 0.75f), fontSize = 10.sp, letterSpacing = 1.sp)
                             }
@@ -826,17 +936,122 @@ private fun NivoraApp() {
                                 }
                             }
                             "Avanzate" -> {
-                                SettingsSection("Avanzate", "Gestisci l'app e ripristina le preferenze di Nivora.", accent) {
-                                    Text("Versione ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 14.sp)
-                                    OutlinedButton(onClick = { showSettings = false; context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("Informazioni app Android") }
+                                Text("APP E SISTEMA", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Informazioni app", "Versione ${BuildConfig.VERSION_NAME} e permessi Android", "ⓘ", fg, muted, accent) { settingsPage = "Informazioni app" }
+                                SettingsNavigationItem("Backup & Ripristino", "Esporta o ripristina le preferenze in un file JSON", "▣", fg, muted, accent) { settingsPage = "Backup & Ripristino" }
+                                SettingsNavigationItem("Ultime modifiche", "Scopri cosa è cambiato in Nivora", "▤", fg, muted, accent) { settingsPage = "Ultime modifiche" }
+                                SettingsNavigationItem("Cambia launcher predefinito", "Apri la scelta del launcher Home di Android", "⌂", fg, muted, accent) {
+                                    try {
+                                        if (android.os.Build.VERSION.SDK_INT >= 29) {
+                                            val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
+                                            if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
+                                                context.startActivity(roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME))
+                                            } else {
+                                                context.startActivity(Intent("android.settings.HOME_SETTINGS"))
+                                            }
+                                        } else {
+                                            context.startActivity(Intent("android.settings.HOME_SETTINGS"))
+                                        }
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "Apri Impostazioni Android e scegli Nivora come app Home predefinita", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                SettingsNavigationItem("Disinstalla Nivora", "Apri la procedura di disinstallazione Android", "⌫", fg, muted, accent) {
+                                    try { context.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${context.packageName}"))) }
+                                    catch (_: Exception) { Toast.makeText(context, "Impossibile aprire la disinstallazione Android", Toast.LENGTH_SHORT).show() }
+                                }
+                                SettingsNavigationItem("Riavvia launcher", "Ricarica l'interfaccia e le preferenze", "↻", fg, muted, accent) {
+                                    showSettings = false
+                                    (context as? Activity)?.recreate()
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text("PRIVACY E LICENZE", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Informativa sulla privacy", "Come vengono gestite le preferenze locali", "♡", fg, muted, accent) { settingsPage = "Informativa sulla privacy" }
+                                SettingsNavigationItem("Termini di servizio", "Condizioni d'uso di Nivora", "▤", fg, muted, accent) { settingsPage = "Termini di servizio" }
+                                SettingsNavigationItem("Impostazioni sulla privacy", "Apri le impostazioni privacy di Android", "◉", fg, muted, accent) {
+                                    try { context.startActivity(Intent("android.settings.PRIVACY_SETTINGS")) }
+                                    catch (_: Exception) { Toast.makeText(context, "Le impostazioni privacy non sono disponibili su questa versione Android", Toast.LENGTH_SHORT).show() }
+                                }
+                                SettingsNavigationItem("Licenze open source", "Librerie e licenze del progetto", "©", fg, muted, accent) { settingsPage = "Licenze open source" }
+                                SettingsSection("Ripristino", "Cancella preferiti, temi e configurazione locale.", accent) {
                                     OutlinedButton(onClick = { showResetConfirmation = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE58A8A))) { Text("Ripristina preferenze Nivora") }
+                                }
+                            }
+                            "Nivora Lab" -> {
+                                SettingsSection("Nivora Lab", "Funzioni sperimentali locali, senza account, abbonamenti o tracciamento di Nivora.", accent) {
+                                    Text("Widget Android", color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                    Text("Aggiungi alla Home widget di orologio, calendario, meteo e delle app installate.", color = muted, fontSize = 12.sp)
+                                    OutlinedButton(onClick = { settingsPage = "Widget" }, modifier = Modifier.fillMaxWidth()) { Text("GESTISCI WIDGET") }
+                                    HorizontalDivider(color = muted.copy(alpha = 0.18f))
+                                    Text("Prism Arcade", color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                    Text("Snake e Blockfall funzionano offline, con controlli touch, record e velocità progressiva.", color = muted, fontSize = 12.sp)
+                                    OutlinedButton(onClick = { showSettings = false; showArcade = true }, modifier = Modifier.fillMaxWidth()) { Text("APRI I GIOCHI") }
+                                }
+                            }
+                            "Informazioni app" -> {
+                                SettingsSection("Informazioni app", "Informazioni della versione installata.", accent) {
+                                    Text("Nivora Launcher ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                    Text("Package: ${context.packageName}", color = muted, fontSize = 12.sp)
+                                    OutlinedButton(onClick = { showSettings = false; context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("APRI DETTAGLI ANDROID") }
+                                }
+                            }
+                            "Ultime modifiche" -> {
+                                SettingsSection("Ultime modifiche", "Nivora ${BuildConfig.VERSION_NAME}", accent) {
+                                    Text("• Menu impostazioni suddiviso in pagine dedicate", color = fg, fontSize = 13.sp)
+                                    Text("• Temi personali, sfondi integrati e foto dalla galleria", color = fg, fontSize = 13.sp)
+                                    Text("• Widget Android aggiungibili e gestibili dalla Home", color = fg, fontSize = 13.sp)
+                                    Text("• Icone monocromatiche e nomi delle app su due righe", color = fg, fontSize = 13.sp)
+                                    Text("• Snake e Blockfall con controlli swipe e record salvati", color = fg, fontSize = 13.sp)
+                                    Text("• Backup locale e strumenti per privacy e manutenzione", color = fg, fontSize = 13.sp)
+                                }
+                            }
+                            "Informativa sulla privacy" -> {
+                                SettingsSection("Informativa sulla privacy", "Nivora conserva localmente preferenze, temi, nomi delle app preferite e impostazioni del launcher.", accent) {
+                                    Text("Nivora non richiede account e non integra telemetria o pubblicità. Le preferenze restano sul dispositivo salvo un'esportazione manuale del backup.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                    Text("I widget, le app avviate e i link aperti possono usare servizi o connessioni propri, separati da Nivora.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                    Text("Le foto selezionate vengono lette dal dispositivo per lo sfondo. Non vengono caricate da Nivora su un server.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                }
+                            }
+                            "Termini di servizio" -> {
+                                SettingsSection("Termini di servizio", "Uso del launcher.", accent) {
+                                    Text("Nivora è fornito per uso personale e può cambiare durante lo sviluppo. L'app non sostituisce le funzioni di sistema e alcune capacità dipendono da Android e dalle app installate.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                    Text("I widget e le applicazioni di terze parti sono forniti dai rispettivi sviluppatori. L'utente resta responsabile dei contenuti aperti e dei file importati o esportati.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                }
+                            }
+                            "Licenze open source" -> {
+                                SettingsSection("Licenze open source", "Librerie principali utilizzate da Nivora.", accent) {
+                                    Text("AndroidX Compose UI e Material 3 — Apache License 2.0", color = fg, fontSize = 12.sp)
+                                    Text("AndroidX Activity e Lifecycle — Apache License 2.0", color = fg, fontSize = 12.sp)
+                                    Text("Kotlin Standard Library — Apache License 2.0", color = fg, fontSize = 12.sp)
+                                    Text("JUnit 4 (solo test) — Eclipse Public License 1.0", color = fg, fontSize = 12.sp)
+                                    Text("Le licenze complete e gli avvisi dei componenti inclusi saranno distribuiti con la release.", color = muted, fontSize = 11.sp)
+                                }
+                            }
+                            "Backup & Ripristino" -> {
+                                SettingsSection("Backup & Ripristino", "Esporta temi e preferenze in un file JSON da conservare o trasferire.", accent) {
+                                    Text("I widget Android e le foto personali non sono inclusi: dipendono da autorizzazioni e ID locali del dispositivo.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                    Button(onClick = { exportSettingsBackup.launch("nivora-backup-${BuildConfig.VERSION_NAME}.json") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("ESPORTA BACKUP JSON") }
+                                    OutlinedButton(onClick = { importSettingsBackup.launch(arrayOf("application/json", "text/plain")) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("RIPRISTINA DA BACKUP JSON") }
                                 }
                             }
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                     if (settingsPage != "Menu") {
-                        TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Temi" else "Menu" }, modifier = Modifier.fillMaxWidth()) { Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Torna ai temi" else "Torna alle impostazioni", color = accent) }
+                        TextButton(onClick = {
+                            settingsPage = when {
+                                settingsPage in themeSettingsPages -> "Temi"
+                                settingsPage in advancedSettingsPages -> "Avanzate"
+                                else -> "Menu"
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                if (settingsPage in themeSettingsPages) "Torna ai temi"
+                                else if (settingsPage in advancedSettingsPages) "Torna ad Avanzate"
+                                else "Torna alle impostazioni",
+                                color = accent
+                            )
+                        }
                     } else {
                         Button(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) { Text("FATTO", letterSpacing = 1.2.sp) }
                     }
