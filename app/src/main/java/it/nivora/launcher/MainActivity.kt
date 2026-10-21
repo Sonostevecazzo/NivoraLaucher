@@ -382,6 +382,31 @@ private fun NivoraApp() {
                         Spacer(Modifier.width(10.dp))
                         Text("●", color = accent, fontSize = 9.sp, modifier = Modifier.padding(bottom = 15.dp))
                     }
+                    if (homeWidgetIds.isNotEmpty()) {
+                        Column(
+                            Modifier.fillMaxWidth().heightIn(max = 190.dp).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            homeWidgetIds.forEach { widgetId ->
+                                val info = appWidgetManager.getAppWidgetInfo(widgetId)
+                                if (info != null) {
+                                    Box(
+                                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                                            .background(panel.copy(alpha = 0.82f))
+                                            .border(1.dp, accent.copy(alpha = 0.24f), RoundedCornerShape(18.dp))
+                                    ) {
+                                        AndroidView(
+                                            factory = { viewContext -> appWidgetHost.createView(viewContext, widgetId, info).apply { setAppWidget(widgetId, info) } },
+                                            update = { },
+                                            modifier = Modifier.fillMaxWidth().height(info.minHeight.coerceIn(72, 190).dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                         Text("PREFERITE", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.weight(1f))
@@ -534,6 +559,7 @@ private fun NivoraApp() {
                                 SettingsNavigationItem("Produttività", "Preferiti, ricerca e accesso alle app", "☆", fg, muted, accent) { settingsPage = "Produttività" }
                                 SettingsNavigationItem("Temi", "Colori, sfondi e stile della schermata Home", "✧", fg, muted, accent) { settingsPage = "Temi" }
                                 SettingsNavigationItem("Schermata Home", "Layout, etichette e disposizione", "⌂", fg, muted, accent) { settingsPage = "Schermata Home" }
+                SettingsNavigationItem("Widget", "Aggiungi widget Android direttamente alla Home", "▣", fg, muted, accent) { settingsPage = "Widget" }
                                 SettingsNavigationItem("Icone e applicazioni", "Aspetto e organizzazione delle app", "▦", fg, muted, accent) { settingsPage = "Icone e applicazioni" }
                                 SettingsNavigationItem("Tipografia", "Caratteri e leggibilità", "Aa", fg, muted, accent) { settingsPage = "Tipografia" }
                                 Spacer(Modifier.height(10.dp))
@@ -586,6 +612,40 @@ private fun NivoraApp() {
                             "Temi della community" -> {
                                 SettingsSection("Temi della community", "Apri il progetto per consultare idee, segnalare problemi o proporre temi. Il catalogo online dedicato potrà essere aggiunto in una fase successiva.", accent) {
                                     OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Sonostevecazzo/NivoraLaucher"))) } }, modifier = Modifier.fillMaxWidth()) { Text("Esplora il progetto su GitHub") }
+                                }
+                            }
+                            "Widget" -> {
+                                SettingsSection("Widget Android", "Aggiungi widget delle app installate. I widget selezionati compariranno anche nella schermata Home di Nivora.", accent) {
+                                    Button(
+                                        onClick = {
+                                            val widgetId = appWidgetHost.allocateAppWidgetId()
+                                            pendingWidgetId = widgetId
+                                            pickWidget.launch(Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) { Text("＋  AGGIUNGI WIDGET") }
+                                    if (homeWidgetIds.isEmpty()) {
+                                        Text("Ancora nessun widget. Puoi aggiungere orologio, calendario, meteo e altri widget forniti dalle app installate.", color = muted, fontSize = 12.sp, lineHeight = 17.sp)
+                                    } else {
+                                        Text("WIDGET AGGIUNTI", color = accent, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
+                                        homeWidgetIds.forEach { widgetId ->
+                                            val info = appWidgetManager.getAppWidgetInfo(widgetId)
+                                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(info?.loadLabel(context.packageManager)?.toString() ?: "Widget $widgetId", color = fg, fontSize = 14.sp)
+                                                    Text(info?.provider?.packageName ?: "Provider non disponibile", color = muted, fontSize = 10.sp, maxLines = 1)
+                                                }
+                                                TextButton(onClick = {
+                                                    val updated = homeWidgetIds.filterNot { it == widgetId }
+                                                    homeWidgetIds = updated
+                                                    prefs.edit().putStringSet("homeWidgetIds", updated.map { it.toString() }.toSet()).apply()
+                                                    appWidgetHost.deleteAppWidgetId(widgetId)
+                                                }) { Text("Rimuovi", color = Color(0xFFE58A8A)) }
+                                            }
+                                        }
+                                    }
+                                    Text("Nota: alcuni widget richiedono una configurazione iniziale dell'app che li fornisce.", color = muted.copy(alpha = 0.8f), fontSize = 11.sp)
                                 }
                             }
                             "Schermata Home" -> {
