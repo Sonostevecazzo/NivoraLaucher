@@ -130,7 +130,7 @@ private fun NivoraApp() {
     ) {
         when {
             showArcade -> showArcade = false
-            showSettings -> { if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
+            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
@@ -459,7 +459,7 @@ private fun NivoraApp() {
                             }
                         }
                         Spacer(Modifier.weight(if (settingsPage == "Menu") 0f else 1f))
-                        IconButton(onClick = { if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
+                        IconButton(onClick = { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
                             Text(if (settingsPage == "Menu") "×" else "‹", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light)
                         }
                     }
@@ -488,20 +488,40 @@ private fun NivoraApp() {
                                 }
                             }
                             "Temi" -> {
-                                SettingsSection("Temi", "Scegli un aspetto pronto all'uso oppure crea la tua combinazione.", accent) {
-                                    ThemePresetPicker(themePreset, accent) { selected ->
-                                        themePreset = selected
-                                        prefs.edit().putString("themePreset", selected).apply()
-                                    }
+                                Text("PERSONALIZZA", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Crea tema", "Crea una combinazione personalizzata", "＋", fg, muted, accent) { settingsPage = "Crea tema" }
+                                SettingsNavigationItem("Modifica il tema corrente", "Metti a punto la configurazione attiva", "✎", fg, muted, accent) { settingsPage = "Modifica tema corrente" }
+                                SettingsNavigationItem("I miei temi", "La tua selezione salvata sul dispositivo", "▱", fg, muted, accent) { settingsPage = "I miei temi" }
+                                Spacer(Modifier.height(8.dp))
+                                Text("SCOPRI", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Temi già pronti", "Scegli tra palette curate con un tocco", "✧", fg, muted, accent) { settingsPage = "Temi già pronti" }
+                                SettingsNavigationItem("Temi della community", "Esplora idee e contributi open source", "♡", fg, muted, accent) { settingsPage = "Temi della community" }
+                            }
+                            "Crea tema", "Modifica tema corrente" -> {
+                                SettingsSection(if (settingsPage == "Crea tema") "Crea tema" else "Modifica il tema corrente", "Le modifiche vengono salvate automaticamente sul dispositivo.", accent) {
+                                    ThemePresetPicker(themePreset, accent) { selected -> themePreset = selected; prefs.edit().putString("themePreset", selected).apply() }
                                     HorizontalDivider(color = muted.copy(alpha = 0.18f))
                                     SettingSwitch("Modalità scura", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
-                                    SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") {
-                                        wallpaper = it; prefs.edit().putString("wallpaper", it).apply()
-                                    }
-                                    OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                                        Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale")
-                                    }
+                                    SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
+                                    OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale") }
                                     if (customWallpaperUri != null) OutlinedButton(onClick = { customWallpaperUri = null; customWallpaperBitmap = null; prefs.edit().remove("customWallpaperUri").apply() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Rimuovi foto personale") }
+                                }
+                            }
+                            "Temi già pronti" -> {
+                                SettingsSection("Temi già pronti", "Applica una palette predefinita e visualizza il risultato nella Home.", accent) {
+                                    ThemePresetPicker(themePreset, accent) { selected -> themePreset = selected; prefs.edit().putString("themePreset", selected).apply() }
+                                }
+                            }
+                            "I miei temi" -> {
+                                SettingsSection("I miei temi", "Le preferenze di Nivora sono conservate localmente sul dispositivo.", accent) {
+                                    Text("Tema attivo: $themePreset", color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                    Text("Il tema attivo include la palette, lo stile dello sfondo e le opzioni di visualizzazione. Puoi modificarlo senza perdere le altre preferenze.", color = muted, fontSize = 12.sp)
+                                    OutlinedButton(onClick = { settingsPage = "Modifica tema corrente" }, modifier = Modifier.fillMaxWidth()) { Text("Modifica tema attivo") }
+                                }
+                            }
+                            "Temi della community" -> {
+                                SettingsSection("Temi della community", "Apri il progetto per consultare idee, segnalare problemi o proporre temi. Il catalogo online dedicato potrà essere aggiunto in una fase successiva.", accent) {
+                                    OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Sonostevecazzo/NivoraLaucher"))) } }, modifier = Modifier.fillMaxWidth()) { Text("Esplora il progetto su GitHub") }
                                 }
                             }
                             "Schermata Home" -> {
@@ -553,7 +573,7 @@ private fun NivoraApp() {
                     }
                     Spacer(Modifier.height(12.dp))
                     if (settingsPage != "Menu") {
-                        TextButton(onClick = { settingsPage = "Menu" }, modifier = Modifier.fillMaxWidth()) { Text("Torna alle impostazioni", color = accent) }
+                        TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) "Temi" else "Menu" }, modifier = Modifier.fillMaxWidth()) { Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community")) "Torna ai temi" else "Torna alle impostazioni", color = accent) }
                     } else {
                         Button(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) { Text("FATTO", letterSpacing = 1.2.sp) }
                     }
