@@ -2,7 +2,7 @@ name: Nivora Android CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feat/glass-monochrome-themes"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
