@@ -141,7 +141,7 @@ private fun NivoraApp() {
     ) {
         when {
             showArcade -> showArcade = false
-            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
+            showSettings -> { if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) settingsPage = "Temi" else if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
@@ -603,7 +603,7 @@ private fun NivoraApp() {
                                     ThemePresetPicker(themePreset, accent) { selected -> themePreset = selected; prefs.edit().putString("themePreset", selected).apply() }
                                     HorizontalDivider(color = muted.copy(alpha = 0.18f))
                                     SettingSwitch("Modalità scura", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
-                                    SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
+                                    SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset", "Aurora", "Nebula", "Orbit", "Mesh", "Dunes", "Ocean", "Forest") { wallpaper = it; prefs.edit().putString("wallpaper", it).apply() }
                                     OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale") }
                                     if (customWallpaperUri != null) OutlinedButton(onClick = { customWallpaperUri = null; customWallpaperBitmap = null; prefs.edit().remove("customWallpaperUri").apply() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Rimuovi foto personale") }
                                 }
@@ -783,6 +783,39 @@ private fun NivoraApp() {
                 }
             }
         }
+    }
+
+    if (savingThemeName) {
+        AlertDialog(
+            onDismissRequest = { savingThemeName = false },
+            title = { Text("Salva tema personale") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Salverò palette, sfondo, modalità scura e stile delle icone sul dispositivo.", fontSize = 13.sp)
+                    OutlinedTextField(
+                        value = newThemeName,
+                        onValueChange = { newThemeName = it.take(32) },
+                        label = { Text("Nome del tema") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val name = newThemeName.trim().replace("\\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
+                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString()).joinToString("\\t")
+                    customThemes = customThemes.filterNot { it.substringBefore('\\t').equals(name, ignoreCase = true) } + record
+                    prefs.edit().putStringSet("customThemes", customThemes).apply()
+                    savingThemeName = false
+                    newThemeName = ""
+                    Toast.makeText(context, "Tema salvato", Toast.LENGTH_SHORT).show()
+                }) { Text("SALVA") }
+            },
+            dismissButton = {
+                TextButton(onClick = { savingThemeName = false }) { Text("ANNULLA") }
+            }
+        )
     }
 
     if (showArcade) {
