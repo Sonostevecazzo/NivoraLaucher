@@ -329,6 +329,11 @@ private fun NivoraApp() {
         "Cursive" -> FontFamily.Cursive
         "Rounded iOS", "Rounded" -> FontFamily(Typeface.create("sans-serif-rounded", Typeface.NORMAL))
         "Condensed" -> FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
+        "Sans-serif Black" -> FontFamily(Typeface.create("sans-serif-black", Typeface.NORMAL))
+        "Sans-serif Thin" -> FontFamily(Typeface.create("sans-serif-thin", Typeface.NORMAL))
+        "Casual" -> FontFamily(Typeface.create("casual", Typeface.NORMAL))
+        "Serif Monospace" -> FontFamily(Typeface.create("serif-monospace", Typeface.NORMAL))
+        "Small Caps" -> FontFamily(Typeface.create("sans-serif-smallcaps", Typeface.NORMAL))
         "iOS Style" -> FontFamily(Typeface.create("sans-serif", Typeface.NORMAL))
         "iOS Light" -> FontFamily(Typeface.create("sans-serif-light", Typeface.NORMAL))
         "iOS Medium" -> FontFamily(Typeface.create("sans-serif-medium", Typeface.NORMAL))
@@ -744,8 +749,11 @@ private fun NivoraApp() {
                                 }
                             }
                             "Tipografia" -> {
-                                SettingsSection("Tipografia", "Regola il carattere per un'esperienza leggibile e coerente.", accent) {
-                                    SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                                SettingsSection("Tipografia", "Font di sistema disponibili offline, con anteprima immediata.", accent) {
+                                    SettingChoice("Famiglia tipografica", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive", "Sans-serif Black", "Sans-serif Thin", "Casual", "Serif Monospace", "Small Caps") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                                    HorizontalDivider(color = muted.copy(alpha = 0.18f))
+                                    Text("Aa Bb Cc 012345", color = fg, fontSize = 25.sp, fontFamily = selectedFont)
+                                    Text("Anteprima del carattere selezionato", color = muted, fontSize = 11.sp)
                                 }
                             }
                             "Aiuto e feedback" -> {
