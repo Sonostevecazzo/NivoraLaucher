@@ -362,6 +362,34 @@ private fun NivoraApp() {
                     Brush.verticalGradient(listOf(Color(0xFF4B253F), Color(0xFF1A202C), Color(0xFF090A0A)))
                 else
                     Brush.verticalGradient(listOf(Color(0xFFFFF0E9), bg, Color(0xFFE8D9E8)))
+                "Aurora" -> if (dark)
+                    Brush.linearGradient(listOf(Color(0xFF071622), Color(0xFF16434B), Color(0xFF24192D)))
+                else
+                    Brush.linearGradient(listOf(Color(0xFFD7F3EE), Color(0xFFB8DCD9), Color(0xFFE8D9F2)))
+                "Nebula" -> if (dark)
+                    Brush.linearGradient(listOf(Color(0xFF17143A), Color(0xFF582B62), Color(0xFF101728)))
+                else
+                    Brush.linearGradient(listOf(Color(0xFFE5DDF8), Color(0xFFF0D9EC), Color(0xFFD5E3F5)))
+                "Orbit" -> if (dark)
+                    Brush.verticalGradient(listOf(Color(0xFF06121F), Color(0xFF122C43), Color(0xFF070B11)))
+                else
+                    Brush.verticalGradient(listOf(Color(0xFFD9EAF5), Color(0xFFBBD5E5), Color(0xFFE9EFF5)))
+                "Mesh" -> if (dark)
+                    Brush.linearGradient(listOf(Color(0xFF151D2A), Color(0xFF303D50)))
+                else
+                    Brush.linearGradient(listOf(Color(0xFFE3EAF2), Color(0xFFC7D5E3)))
+                "Dunes" -> if (dark)
+                    Brush.verticalGradient(listOf(Color(0xFF31211F), Color(0xFF6B4436), Color(0xFF171516)))
+                else
+                    Brush.verticalGradient(listOf(Color(0xFFF2D8BE), Color(0xFFDBAD86), Color(0xFFF4E4D5)))
+                "Ocean" -> if (dark)
+                    Brush.verticalGradient(listOf(Color(0xFF052333), Color(0xFF096071), Color(0xFF06131C)))
+                else
+                    Brush.verticalGradient(listOf(Color(0xFFD3F0F4), Color(0xFFA3D7E2), Color(0xFFE7F5F6)))
+                "Forest" -> if (dark)
+                    Brush.verticalGradient(listOf(Color(0xFF071D18), Color(0xFF254737), Color(0xFF07110F)))
+                else
+                    Brush.verticalGradient(listOf(Color(0xFFD9E7D8), Color(0xFFB1C9AD), Color(0xFFF0F3E9)))
                 else -> Brush.verticalGradient(listOf(bg, bg))
             }
             Box(Modifier.fillMaxSize()) {
@@ -370,6 +398,9 @@ private fun NivoraApp() {
                     Box(Modifier.fillMaxSize().background(if (dark) Color.Black.copy(alpha = 0.42f) else Color.White.copy(alpha = 0.10f)))
                 } else {
                     Box(Modifier.fillMaxSize().background(backdrop))
+                    if (wallpaper in setOf("Aurora", "Nebula", "Orbit", "Mesh", "Dunes", "Ocean", "Forest")) {
+                        DecorativeWallpaper(wallpaper, accent, dark, Modifier.fillMaxSize())
+                    }
                 }
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
