@@ -7,6 +7,20 @@ import org.junit.Test
 
 class OfflineGameLogicTest {
     @Test
+    fun snakeTurnBufferRejectsImmediateReverse() {
+        assertEquals(SnakeDirection.RIGHT, requestSnakeTurn(SnakeDirection.RIGHT, SnakeDirection.LEFT))
+        assertEquals(SnakeDirection.LEFT, requestSnakeTurn(SnakeDirection.LEFT, SnakeDirection.RIGHT))
+        assertEquals(SnakeDirection.UP, requestSnakeTurn(SnakeDirection.UP, SnakeDirection.DOWN))
+        assertEquals(SnakeDirection.DOWN, requestSnakeTurn(SnakeDirection.DOWN, SnakeDirection.UP))
+    }
+
+    @Test
+    fun snakeTurnBufferAllowsPerpendicularTurn() {
+        assertEquals(SnakeDirection.UP, requestSnakeTurn(SnakeDirection.RIGHT, SnakeDirection.UP))
+        assertEquals(SnakeDirection.DOWN, requestSnakeTurn(SnakeDirection.LEFT, SnakeDirection.DOWN))
+    }
+
+    @Test
     fun snakeMovesOneCellWithoutChangingLength() {
         val initial = SnakeState(body = listOf(7 to 10, 6 to 10, 5 to 10), food = 0 to 0)
         val next = advanceSnake(initial, SnakeDirection.RIGHT)
