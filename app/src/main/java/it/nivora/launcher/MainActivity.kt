@@ -883,6 +883,80 @@ private fun decodeSampledWallpaper(context: android.content.Context, uri: Uri, m
     }.getOrNull()
 
 @Composable
+private fun DecorativeWallpaper(name: String, accent: Color, dark: Boolean, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val line = accent.copy(alpha = if (dark) 0.14f else 0.20f)
+        when (name) {
+            "Aurora" -> {
+                val c1 = Offset(w * 0.2f, h * 0.18f)
+                val c2 = Offset(w * 0.82f, h * 0.43f)
+                drawCircle(brush = Brush.radialGradient(listOf(Color(0x6649E0CC), Color.Transparent), c1, w * 0.8f), radius = w * 0.8f, center = c1)
+                drawCircle(brush = Brush.radialGradient(listOf(Color(0x554B8CFF), Color.Transparent), c2, w * 0.65f), radius = w * 0.65f, center = c2)
+                val glow = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(0f, h * 0.47f)
+                    cubicTo(w * 0.26f, h * 0.35f, w * 0.38f, h * 0.62f, w * 0.62f, h * 0.45f)
+                    cubicTo(w * 0.82f, h * 0.31f, w * 0.9f, h * 0.44f, w, h * 0.35f)
+                    lineTo(w, h * 0.55f)
+                    cubicTo(w * 0.72f, h * 0.68f, w * 0.49f, h * 0.50f, w * 0.25f, h * 0.66f)
+                    cubicTo(w * 0.12f, h * 0.72f, w * 0.08f, h * 0.62f, 0f, h * 0.70f)
+                    close()
+                }
+                drawPath(glow, Color(0x334FD6C5))
+            }
+            "Nebula" -> {
+                val stars = listOf(Offset(w * 0.22f, h * 0.2f), Offset(w * 0.78f, h * 0.39f), Offset(w * 0.35f, h * 0.75f))
+                val colors = listOf(Color(0x665B5BFF), Color(0x665BC4DD), Color(0x665B376C))
+                stars.forEachIndexed { index, center ->
+                    drawCircle(brush = Brush.radialGradient(listOf(colors[index], Color.Transparent), center, w * 0.56f), radius = w * 0.56f, center = center)
+                }
+                for (i in 0 until 50) {
+                    val x = ((i * 73 + 19) % 997) / 997f * w
+                    val y = ((i * 137 + 31) % 991) / 991f * h
+                    drawCircle(color = Color.White.copy(alpha = if (i % 4 == 0) 0.62f else 0.24f), radius = if (i % 7 == 0) 2.dp.toPx() else 1.dp.toPx(), center = Offset(x, y))
+                }
+            }
+            "Orbit" -> {
+                val center = Offset(w * 0.68f, h * 0.31f)
+                for (i in 1..9) drawCircle(color = line, radius = w * i * 0.095f, center = center, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()))
+                drawCircle(color = accent.copy(alpha = 0.62f), radius = w * 0.035f, center = center)
+            }
+            "Mesh" -> {
+                val step = 34.dp.toPx()
+                var x = 0f
+                while (x <= w) { drawLine(line, Offset(x, 0f), Offset(x, h), 1.dp.toPx()); x += step }
+                var y = 0f
+                while (y <= h) { drawLine(line, Offset(0f, y), Offset(w, y), 1.dp.toPx()); y += step }
+                drawCircle(brush = Brush.radialGradient(listOf(accent.copy(alpha = 0.14f), Color.Transparent), Offset(w * 0.76f, h * 0.22f), w * 0.62f), radius = w * 0.62f, center = Offset(w * 0.76f, h * 0.22f))
+            }
+            "Dunes" -> {
+                val first = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h * 0.55f); cubicTo(w * 0.28f, h * 0.40f, w * 0.48f, h * 0.78f, w, h * 0.51f); lineTo(w, h); lineTo(0f, h); close() }
+                val second = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h * 0.74f); cubicTo(w * 0.28f, h * 0.56f, w * 0.56f, h * 0.88f, w, h * 0.68f); lineTo(w, h); lineTo(0f, h); close() }
+                drawPath(first, Color(0x226C3E31))
+                drawPath(second, Color(0x3352251F))
+                drawLine(Color.White.copy(alpha = 0.12f), Offset(0f, h * 0.55f), Offset(w, h * 0.51f), 1.dp.toPx())
+            }
+            "Ocean" -> {
+                for (i in 0..7) {
+                    val y = h * (0.34f + i * 0.075f)
+                    val wave = androidx.compose.ui.graphics.Path().apply { moveTo(0f, y); cubicTo(w * 0.22f, y - h * 0.045f, w * 0.34f, y + h * 0.045f, w * 0.54f, y); cubicTo(w * 0.76f, y - h * 0.045f, w * 0.88f, y + h * 0.045f, w, y - h * 0.008f) }
+                    drawPath(wave, line, style = androidx.compose.ui.graphics.drawscope.Stroke(width = (1 + i % 3).dp.toPx()))
+                }
+            }
+            "Forest" -> {
+                for (i in 0..8) {
+                    val baseX = w * (i / 8f)
+                    val treeHeight = h * (0.12f + ((i * 17) % 5) * 0.035f)
+                    val tree = androidx.compose.ui.graphics.Path().apply { moveTo(baseX, h * 0.72f); lineTo(baseX - w * 0.07f, h * 0.72f); lineTo(baseX, h * 0.72f - treeHeight); lineTo(baseX + w * 0.07f, h * 0.72f); close() }
+                    drawPath(tree, Color(0x2255AA79))
+                }
+                drawCircle(brush = Brush.radialGradient(listOf(Color(0x226FE0A1), Color.Transparent), Offset(w * 0.5f, h * 0.3f), w * 0.8f), radius = w * 0.8f, center = Offset(w * 0.5f, h * 0.3f))
+            }
+        }
+    }
+}
+@Composable
 private fun PrismSurface(modifier: Modifier = Modifier, tint: Color, shape: Shape, content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
     val transition = rememberInfiniteTransition(label = "prism-flow")
     val sweep by transition.animateFloat(initialValue = -0.65f, targetValue = 1.7f,
