@@ -869,7 +869,7 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
         }
         if (showLabel) {
             Spacer(Modifier.height(7.dp))
-            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 1, textAlign = TextAlign.Center, lineHeight = 12.sp,
+            Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 2, softWrap = true, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = 12.sp,
                 letterSpacing = if (fontChoice == "iOS Style") (-0.15).sp else 0.sp, fontWeight = if (fontChoice == "iOS Style") FontWeight.Medium else FontWeight.Normal)
         }
     }
