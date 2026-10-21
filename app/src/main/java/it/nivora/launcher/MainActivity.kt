@@ -112,11 +112,11 @@ private fun NivoraApp() {
     var settingsPage by remember { mutableStateOf("Menu") }
     val appWidgetManager = remember(context) { AppWidgetManager.getInstance(context) }
     val appWidgetHost = remember(context) { AppWidgetHost(context, 5731) }
-    var homeWidgetIds by remember { mutableStateOf(prefs.getStringSet("homeWidgetIds", emptySet())?.mapNotNull { it.toIntOrNull() } ?: emptyList()) }
+    var homeWidgetIds by remember { mutableStateOf(prefs.getStringSet("homeWidgetIds", emptySet<String>())?.mapNotNull { it.toIntOrNull() } ?: emptyList<Int>()) }
     var pendingWidgetId by remember { mutableIntStateOf(-1) }
     var savingThemeName by remember { mutableStateOf(false) }
     var newThemeName by remember { mutableStateOf("") }
-    var customThemes by remember { mutableStateOf(prefs.getStringSet("customThemes", emptySet())?.toSet() ?: emptySet()) }
+    var customThemes by remember { mutableStateOf(prefs.getStringSet("customThemes", emptySet<String>())?.toSet() ?: emptySet<String>()) }
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet", "Obsidian", "Sage", "Bronze", "Pearl", "Midnight")
@@ -128,7 +128,7 @@ private fun NivoraApp() {
     var customWallpaperUri by remember { mutableStateOf(prefs.getString("customWallpaperUri", null)) }
     var customWallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showArcade by remember { mutableStateOf(false) }
-    var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet())?.toSet() ?: emptySet()) }
+    var favorites by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet<String>())?.toSet() ?: emptySet<String>()) }
     var favoritesOnly by remember { mutableStateOf(true) }
     var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
     var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
