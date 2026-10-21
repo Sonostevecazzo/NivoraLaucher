@@ -105,6 +105,7 @@ private fun NivoraApp() {
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var settingsPage by remember { mutableStateOf("Menu") }
     var showLogo by remember { mutableStateOf(prefs.getBoolean("showLogo", true)) }
     var searchExpanded by remember { mutableStateOf(false) }
     val availableThemes = setOf("Mono Glass", "Frost", "Ember", "Moss", "Violet")
@@ -129,7 +130,7 @@ private fun NivoraApp() {
     ) {
         when {
             showArcade -> showArcade = false
-            showSettings -> showSettings = false
+            showSettings -> { if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }
             searchExpanded -> { searchExpanded = false; query = "" }
             showAllApps -> { showAllApps = false; query = ""; favoritesOnly = false }
         }
@@ -437,78 +438,124 @@ private fun NivoraApp() {
     }
 
     if (showSettings) {
-        Dialog(onDismissRequest = { showSettings = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Dialog(
+            onDismissRequest = { if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.94f).clip(RoundedCornerShape(28.dp)),
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(0.96f).clip(RoundedCornerShape(28.dp)),
                 color = dialogSurface
             ) {
-                Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("IMPOSTAZIONI", color = fg, fontSize = 19.sp, letterSpacing = 1.7.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Un’interfaccia essenziale, a modo tuo.", color = muted, fontSize = 12.sp)
+                Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 20.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (settingsPage != "Menu") {
+                            TextButton(onClick = { settingsPage = "Menu" }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
+                                Text("‹  IMPOSTAZIONI", color = accent, fontSize = 13.sp, letterSpacing = 1.sp)
+                            }
+                        } else {
+                            Column(Modifier.weight(1f)) {
+                                Text("Impostazioni", color = fg, fontSize = 27.sp, fontWeight = FontWeight.Normal)
+                                Text("Rendi Nivora davvero tuo", color = muted, fontSize = 13.sp)
+                            }
                         }
-                        IconButton(onClick = { showSettings = false }) { Text("×", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light) }
+                        Spacer(Modifier.weight(if (settingsPage == "Menu") 0f else 1f))
+                        IconButton(onClick = { if (settingsPage != "Menu") settingsPage = "Menu" else showSettings = false }) {
+                            Text(if (settingsPage == "Menu") "×" else "‹", color = fg, fontSize = 28.sp, fontWeight = FontWeight.Light)
+                        }
+                    }
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        when (settingsPage) {
+                            "Menu" -> {
+                                Text("PERSONALIZZA", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Produttività", "Preferiti, ricerca e accesso alle app", "☆", fg, muted, accent) { settingsPage = "Produttività" }
+                                SettingsNavigationItem("Temi", "Colori, sfondi e stile della schermata Home", "✧", fg, muted, accent) { settingsPage = "Temi" }
+                                SettingsNavigationItem("Schermata Home", "Layout, etichette e disposizione", "⌂", fg, muted, accent) { settingsPage = "Schermata Home" }
+                                SettingsNavigationItem("Icone e applicazioni", "Aspetto e organizzazione delle app", "▦", fg, muted, accent) { settingsPage = "Icone e applicazioni" }
+                                SettingsNavigationItem("Tipografia", "Caratteri e leggibilità", "Aa", fg, muted, accent) { settingsPage = "Tipografia" }
+                                Spacer(Modifier.height(10.dp))
+                                Text("ALTRO", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                SettingsNavigationItem("Aiuto e feedback", "Informazioni e supporto per Nivora", "?", fg, muted, accent) { settingsPage = "Aiuto e feedback" }
+                                SettingsNavigationItem("Community", "Contribuisci e scopri il progetto", "♡", fg, muted, accent) { settingsPage = "Community" }
+                                SettingsNavigationItem("Avanzate", "Diagnostica e ripristino delle preferenze", "•••", fg, muted, accent) { settingsPage = "Avanzate" }
+                                Spacer(Modifier.height(12.dp))
+                                Text("NIVORA LAUNCHER  •  VERSIONE ${BuildConfig.VERSION_NAME}", color = muted.copy(alpha = 0.75f), fontSize = 10.sp, letterSpacing = 1.sp)
+                            }
+                            "Produttività" -> {
+                                SettingsSection("Produttività", "Riduci i passaggi e raggiungi subito le app che usi.", accent) {
+                                    SettingSwitch("Mostra nomi delle app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
+                                    SettingChoice("Ordina applicazioni", sortBy, "Nome", "Preferiti", "Recenti") { sortBy = it; prefs.edit().putString("sortBy", it).apply() }
+                                    Text("I preferiti sono disponibili dalla scheda Preferite nel cassetto applicazioni.", color = muted, fontSize = 12.sp)
+                                }
+                            }
+                            "Temi" -> {
+                                SettingsSection("Temi", "Scegli un aspetto pronto all'uso oppure crea la tua combinazione.", accent) {
+                                    ThemePresetPicker(themePreset, accent) { selected ->
+                                        themePreset = selected
+                                        prefs.edit().putString("themePreset", selected).apply()
+                                    }
+                                    HorizontalDivider(color = muted.copy(alpha = 0.18f))
+                                    SettingSwitch("Modalità scura", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
+                                    SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") {
+                                        wallpaper = it; prefs.edit().putString("wallpaper", it).apply()
+                                    }
+                                    OutlinedButton(onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                        Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale")
+                                    }
+                                    if (customWallpaperUri != null) OutlinedButton(onClick = { customWallpaperUri = null; customWallpaperBitmap = null; prefs.edit().remove("customWallpaperUri").apply() }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Rimuovi foto personale") }
+                                }
+                            }
+                            "Schermata Home" -> {
+                                SettingsSection("Schermata Home", "Organizza la schermata principale come preferisci.", accent) {
+                                    SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
+                                    SettingSwitch("Mostra nomi delle app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
+                                    SettingSwitch("Layout compatto", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
+                                    SettingChoice("Disposizione", if (grid) "Griglia" else "Lista", "Griglia", "Lista") { grid = it == "Griglia"; prefs.edit().putBoolean("grid", grid).apply() }
+                                    SettingChoice("Colonne griglia", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
+                                }
+                            }
+                            "Icone e applicazioni" -> {
+                                SettingsSection("Icone e applicazioni", "Personalizza l'aspetto e la disposizione del cassetto app.", accent) {
+                                    SettingSwitch("Icone monocromatiche Nivora", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
+                                    SettingChoice("Dimensione icone", "$iconSize dp", "40 dp", "50 dp", "60 dp", "64 dp") { iconSize = it.removeSuffix(" dp").toInt().coerceIn(40, 64); prefs.edit().putInt("iconSize", iconSize).apply() }
+                                    SettingChoice("Ordina applicazioni", sortBy, "Nome", "Preferiti", "Recenti") { sortBy = it; prefs.edit().putString("sortBy", it).apply() }
+                                }
+                            }
+                            "Tipografia" -> {
+                                SettingsSection("Tipografia", "Regola il carattere per un'esperienza leggibile e coerente.", accent) {
+                                    SettingChoice("Carattere", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                                }
+                            }
+                            "Aiuto e feedback" -> {
+                                SettingsSection("Aiuto e feedback", "Nivora è un progetto in evoluzione. Queste azioni non richiedono account o dati personali.", accent) {
+                                    Text("Versione ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                    Text("Se trovi un problema, annota il passaggio che lo provoca e il modello del dispositivo.", color = muted, fontSize = 13.sp)
+                                    OutlinedButton(onClick = { Toast.makeText(context, "Grazie per aver provato Nivora!", Toast.LENGTH_SHORT).show() }, modifier = Modifier.fillMaxWidth()) { Text("Invia feedback") }
+                                }
+                            }
+                            "Community" -> {
+                                SettingsSection("Community", "Segui lo sviluppo, segnala problemi o proponi miglioramenti.", accent) {
+                                    OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Sonostevecazzo/NivoraLaucher"))) } }, modifier = Modifier.fillMaxWidth()) { Text("Apri Nivora su GitHub") }
+                                    Text("Nivora è ispirato ai launcher minimalisti, ma mantiene nome, codice e identità visiva propri.", color = muted, fontSize = 12.sp)
+                                }
+                            }
+                            "Avanzate" -> {
+                                SettingsSection("Avanzate", "Gestisci l'app e ripristina le preferenze di Nivora.", accent) {
+                                    Text("Versione ${BuildConfig.VERSION_NAME}", color = fg, fontSize = 14.sp)
+                                    OutlinedButton(onClick = { showSettings = false; context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("Informazioni app Android") }
+                                    OutlinedButton(onClick = {
+                                        prefs.edit().clear().apply()
+                                        Toast.makeText(context, "Preferenze Nivora ripristinate. Riavvia il launcher per applicare tutto.", Toast.LENGTH_LONG).show()
+                                        showSettings = false
+                                    }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE58A8A))) { Text("Ripristina preferenze Nivora") }
+                                }
+                            }
+                        }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SettingsSection("Aspetto e temi", "Palette curate e superfici ispirate al glass design.", accent) {
-                            ThemePresetPicker(themePreset, accent) { selected ->
-                                themePreset = selected
-                                prefs.edit().putString("themePreset", selected).apply()
-                            }
-                            HorizontalDivider(color = muted.copy(alpha = 0.18f))
-                            SettingSwitch("Modalità scura", dark) { dark = it; prefs.edit().putBoolean("dark", it).apply() }
-                        }
-                        SettingsSection("Schermata Home", "Organizza la schermata principale.", accent) {
-                            SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
-                            SettingSwitch("Mostra nomi delle app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
-                            SettingSwitch("Layout compatto", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
-                            SettingChoice("Disposizione", if (grid) "Griglia" else "Lista", "Griglia", "Lista") {
-                                grid = it == "Griglia"; prefs.edit().putBoolean("grid", grid).apply()
-                            }
-                            SettingChoice("Colonne griglia", "$columns", "3", "4", "5") {
-                                columns = it.toInt(); prefs.edit().putInt("columns", columns).apply()
-                            }
-                        }
-                        SettingsSection("Icone e applicazioni", "Uniformità visiva e accesso rapido.", accent) {
-                            SettingSwitch("Icone monocromatiche Nivora", monochromeIcons) {
-                                monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply()
-                            }
-                            SettingChoice("Dimensione icone", "$iconSize dp", "40 dp", "50 dp", "60 dp", "64 dp") {
-                                iconSize = it.removeSuffix(" dp").toInt().coerceIn(40, 64)
-                                prefs.edit().putInt("iconSize", iconSize).apply()
-                            }
-                            SettingChoice("Ordina applicazioni", sortBy, "Nome", "Preferiti", "Recenti") {
-                                sortBy = it; prefs.edit().putString("sortBy", it).apply()
-                            }
-                        }
-                        SettingsSection("Tipografia", "Scegli il carattere per orologio e nomi delle app.", accent) {
-                            SettingChoice("Carattere", fontChoice,
-                                "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS",
-                                "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive") {
-                                fontChoice = it; prefs.edit().putString("fontChoice", it).apply()
-                            }
-                        }
-                        SettingsSection("Sfondi", "Scegli una superficie oppure usa una tua immagine.", accent) {
-                            SettingChoice("Stile dello sfondo", wallpaper, "OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset") {
-                                wallpaper = it; prefs.edit().putString("wallpaper", it).apply()
-                            }
-                            OutlinedButton(
-                                onClick = { pickWallpaper.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)
-                            ) { Text(if (customWallpaperUri == null) "Scegli una foto dalla galleria" else "Cambia foto personale") }
-                            if (customWallpaperUri != null) {
-                                OutlinedButton(
-                                    onClick = { customWallpaperUri = null; customWallpaperBitmap = null; prefs.edit().remove("customWallpaperUri").apply() },
-                                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)
-                                ) { Text("Rimuovi foto personale") }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Button(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) {
-                        Text("FATTO", letterSpacing = 1.2.sp)
+                    if (settingsPage != "Menu") {
+                        TextButton(onClick = { settingsPage = "Menu" }, modifier = Modifier.fillMaxWidth()) { Text("Torna alle impostazioni", color = accent) }
+                    } else {
+                        Button(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) { Text("FATTO", letterSpacing = 1.2.sp) }
                     }
                 }
             }
@@ -899,6 +946,32 @@ private fun BottomAction(label: String, selected: Boolean, accent: Color, fg: Co
     Row(Modifier.fillMaxWidth(0.48f).clip(RoundedCornerShape(14.dp)).background(if (selected) panel else Color.Transparent)
         .combinedClickable(onClick = onClick, onLongClick = {}).padding(vertical = 13.dp), horizontalArrangement = Arrangement.Center) {
         Text(label, color = if (selected) accent else fg, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun SettingsNavigationItem(
+    title: String,
+    subtitle: String,
+    glyph: String,
+    fg: Color,
+    muted: Color,
+    accent: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+            Text(glyph, color = accent, fontSize = 24.sp, fontWeight = FontWeight.Light)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        Text("›", color = muted, fontSize = 25.sp)
     }
 }
 
