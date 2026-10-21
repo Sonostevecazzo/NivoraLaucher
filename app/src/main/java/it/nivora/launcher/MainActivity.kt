@@ -1011,25 +1011,15 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 }
 
 /**
- * Monochrome treatment for adaptive app icons: tint only the foreground layer and
- * keep the adaptive mask. Tinting the entire ImageView turns the icon background
- * into a solid square, which destroys the visual identity of the app.
- *
- * Legacy/non-adaptive icons keep their original colors until a dedicated glyph
- * mapping exists for them; this is preferable to rendering an unreadable square.
+ * When monochrome mode is enabled, use the original Nivora glyph pack instead
+ * of tinting arbitrary vendor artwork. This avoids black-background blobs and
+ * gives the app drawer a consistent, recognizable icon language.
  */
-private fun iconForDisplay(icon: Drawable, tint: Color?): Drawable {
+private fun iconForDisplay(app: LaunchableApp, tint: Color?): Drawable {
     if (tint == null) {
-        return icon.constantState?.newDrawable()?.mutate() ?: icon.mutate()
+        return app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
     }
-
-    val copy = icon.constantState?.newDrawable()?.mutate() ?: icon.mutate()
-    val adaptive = copy as? AdaptiveIconDrawable ?: return copy
-    val foreground = adaptive.foreground?.constantState?.newDrawable()?.mutate()
-        ?: adaptive.foreground?.mutate()
-        ?: return copy
-    foreground.setTint(tint.toArgb())
-    return AdaptiveIconDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT), foreground)
+    return NivoraIconDrawable(app.label, app.packageName, tint.toArgb())
 }
 
 @OptIn(ExperimentalFoundationApi::class)
