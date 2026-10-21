@@ -251,20 +251,23 @@ private fun NivoraApp() {
 
     suspend fun refreshLaunchableApps() {
         loading = true
-        val loadedApps = loadApps()
-        apps = loadedApps
-        val installedPackages = loadedApps.map { it.packageName }.toSet()
-        val cleanedFavorites = favorites.intersect(installedPackages)
-        if (cleanedFavorites != favorites) {
-            favorites = cleanedFavorites
-            prefs.edit().putStringSet("favorites", cleanedFavorites).apply()
+        try {
+            val loadedApps = loadApps()
+            apps = loadedApps
+            val installedPackages = loadedApps.map { it.packageName }.toSet()
+            val cleanedFavorites = favorites.intersect(installedPackages)
+            if (cleanedFavorites != favorites) {
+                favorites = cleanedFavorites
+                prefs.edit().putStringSet("favorites", cleanedFavorites).apply()
+            }
+            val cleanedRecents = recentApps.filter { it in installedPackages }.distinct().take(30)
+            if (cleanedRecents != recentApps) {
+                recentApps = cleanedRecents
+                prefs.edit().putString("recentApps", cleanedRecents.joinToString("|")).apply()
+            }
+        } finally {
+            loading = false
         }
-        val cleanedRecents = recentApps.filter { it in installedPackages }.distinct().take(30)
-        if (cleanedRecents != recentApps) {
-            recentApps = cleanedRecents
-            prefs.edit().putString("recentApps", cleanedRecents.joinToString("|")).apply()
-        }
-        loading = false
     }
 
     // Refresh the catalog when this Home activity resumes after another app, Settings or an install.
@@ -588,8 +591,8 @@ private fun NivoraApp() {
                 Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 20.dp)) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (settingsPage != "Menu") {
-                            TextButton(onClick = { settingsPage = "Menu" }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
-                                Text("‹  IMPOSTAZIONI", color = accent, fontSize = 13.sp, letterSpacing = 1.sp)
+                            TextButton(onClick = { settingsPage = if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "Temi" else "Menu" }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
+                                Text(if (settingsPage in setOf("Crea tema", "Modifica tema corrente", "I miei temi", "Temi già pronti", "Temi della community", "Sfondi")) "‹  TEMI" else "‹  IMPOSTAZIONI", color = accent, fontSize = 13.sp, letterSpacing = 1.sp)
                             }
                         } else {
                             Column(Modifier.weight(1f)) {
@@ -1015,6 +1018,11 @@ private enum class ArcadeGame { MENU, SNAKE, BLOCKFALL }
 internal enum class SnakeDirection(val dx: Int, val dy: Int) {
     UP(0, -1), RIGHT(1, 0), DOWN(0, 1), LEFT(-1, 0)
 }
+
+internal fun requestSnakeTurn(current: SnakeDirection, requested: SnakeDirection): SnakeDirection {
+    val isReverse = current.dx == -requested.dx && current.dy == -requested.dy
+    return if (isReverse) current else requested
+}
 internal data class SnakeState(
     val body: List<Pair<Int, Int>> = listOf(7 to 10, 6 to 10, 5 to 10),
     val food: Pair<Int, Int> = 11 to 10,
@@ -1123,6 +1131,7 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
     var bestScore by remember { mutableIntStateOf(prefs.getInt("snakeBest", 0)) }
     var state by remember { mutableStateOf(SnakeState()) }
     var direction by remember { mutableStateOf(SnakeDirection.RIGHT) }
+    var queuedDirection by remember { mutableStateOf(SnakeDirection.RIGHT) }
     var running by remember { mutableStateOf(false) }
     LaunchedEffect(state.score) {
         if (state.score > bestScore) {
@@ -1134,6 +1143,7 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
         if (running && !state.over) {
             while (true) {
                 delay((175L - (state.score / 50) * 12L).coerceAtLeast(80L))
+                direction = queuedDirection
                 state = advanceSnake(state, direction)
                 if (state.over) { running = false; break }
             }
@@ -1146,7 +1156,7 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
             Text("LIVELLO ${state.score / 50 + 1}  ·  RECORD $bestScore", color = fg.copy(alpha = 0.55f), fontSize = 10.sp)
         }
         TextButton(onClick = { running = !running && !state.over }) { Text(if (running) "PAUSA" else if (state.over) "FINE PARTITA" else "GIOCA", color = palette.accent) }
-        TextButton(onClick = { state = SnakeState(); direction = SnakeDirection.RIGHT; running = false }) { Text("RESET", color = fg) }
+        TextButton(onClick = { state = SnakeState(); direction = SnakeDirection.RIGHT; queuedDirection = SnakeDirection.RIGHT; running = false }) { Text("RESET", color = fg) }
     }
     androidx.compose.foundation.Canvas(
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(palette.board)
@@ -1157,15 +1167,9 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
                     onDragStart = { dragX = 0f; dragY = 0f },
                     onDragEnd = {
                         if (abs(dragX) > abs(dragY) && abs(dragX) > 24.dp.toPx()) {
-                            val next = if (dragX < 0f) SnakeDirection.LEFT else SnakeDirection.RIGHT
-                            if (next != SnakeDirection.LEFT || direction != SnakeDirection.RIGHT) {
-                                if (next != SnakeDirection.RIGHT || direction != SnakeDirection.LEFT) direction = next
-                            }
+                            queuedDirection = requestSnakeTurn(direction, if (dragX < 0f) SnakeDirection.LEFT else SnakeDirection.RIGHT)
                         } else if (abs(dragY) > 24.dp.toPx()) {
-                            val next = if (dragY < 0f) SnakeDirection.UP else SnakeDirection.DOWN
-                            if (next != SnakeDirection.UP || direction != SnakeDirection.DOWN) {
-                                if (next != SnakeDirection.DOWN || direction != SnakeDirection.UP) direction = next
-                            }
+                            queuedDirection = requestSnakeTurn(direction, if (dragY < 0f) SnakeDirection.UP else SnakeDirection.DOWN)
                         }
                     },
                     onDrag = { change, amount -> dragX += amount.x; dragY += amount.y; change.consume() }
@@ -1189,11 +1193,11 @@ private fun SnakeGame(palette: ArcadePalette, fg: Color, modifier: Modifier = Mo
     }
     if (state.over) Text("Partita terminata — premi RESET per riprovare", color = fg.copy(alpha = 0.7f), fontSize = 12.sp)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedButton(onClick = { if (direction != SnakeDirection.DOWN) direction = SnakeDirection.UP }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 5.dp)) { Text("↑", color = palette.accent, fontSize = 20.sp) }
+        OutlinedButton(onClick = { queuedDirection = requestSnakeTurn(direction, SnakeDirection.UP) }, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 5.dp)) { Text("↑", color = palette.accent, fontSize = 20.sp) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { if (direction != SnakeDirection.RIGHT) direction = SnakeDirection.LEFT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("←", color = palette.accent, fontSize = 20.sp) }
-            OutlinedButton(onClick = { if (direction != SnakeDirection.UP) direction = SnakeDirection.DOWN }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("↓", color = palette.accent, fontSize = 20.sp) }
-            OutlinedButton(onClick = { if (direction != SnakeDirection.LEFT) direction = SnakeDirection.RIGHT }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("→", color = palette.accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { queuedDirection = requestSnakeTurn(direction, SnakeDirection.LEFT) }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("←", color = palette.accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { queuedDirection = requestSnakeTurn(direction, SnakeDirection.DOWN) }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("↓", color = palette.accent, fontSize = 20.sp) }
+            OutlinedButton(onClick = { queuedDirection = requestSnakeTurn(direction, SnakeDirection.RIGHT) }, contentPadding = PaddingValues(horizontal = 23.dp, vertical = 5.dp)) { Text("→", color = palette.accent, fontSize = 20.sp) }
         }
     }
     Text("Scorri sul campo o usa le frecce · la velocità cresce con il punteggio · offline", color = fg.copy(alpha = 0.42f), fontSize = 10.sp)
@@ -1312,7 +1316,12 @@ private fun BlockfallGame(palette: ArcadePalette, fg: Color, modifier: Modifier 
                             if (dragY < 0f) state = moveBlock(state, rotate = true)
                             else {
                                 val steps = (abs(dragY) / threshold).toInt().coerceIn(1, 8)
-                                repeat(steps) { state = moveBlock(state, dy = 1) }
+                                for (step in 0 until steps) {
+                                    val before = state
+                                    val next = moveBlock(before, dy = 1)
+                                    state = next
+                                    if (next.over || (next.board != before.board && next.pieceY <= before.pieceY)) break
+                                }
                             }
                             if (state.over) running = false
                         } else {
