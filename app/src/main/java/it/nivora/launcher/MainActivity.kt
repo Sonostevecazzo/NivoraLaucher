@@ -1760,19 +1760,11 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
  */
 private fun iconForDisplay(app: LaunchableApp, style: String, accent: Color): Drawable {
     fun original(): Drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
-    val hasNivoraGlyph = NivoraIconDrawable.hasDesignedGlyph(app.label, app.packageName)
     return when (style) {
-        "Nivora Flux" -> if (hasNivoraGlyph) {
-            NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux")
-        } else NivoraFluxFrameDrawable(original(), app.label, app.packageName)
-        "Monocromatiche" -> if (hasNivoraGlyph) {
-            NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
-        } else {
-            original().apply {
-                val matrix = android.graphics.ColorMatrix().apply { setSaturation(0f) }
-                colorFilter = android.graphics.ColorMatrixColorFilter(matrix)
-            }
-        }
+        // Flux is a full icon language, not a decorative frame around the vendor logo.
+        // Every installed app receives a coherent Nivora glyph, including abstract fallback variants.
+        "Nivora Flux" -> NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux")
+        "Monocromatiche" -> NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
         else -> original()
     }
 }
