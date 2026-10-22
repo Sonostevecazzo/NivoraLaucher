@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
@@ -776,7 +777,7 @@ private fun NivoraApp() {
                         if (carouselPackageKeys.isNotEmpty()) carouselState.scrollToItem(0)
                     }
                     val carouselLayout by remember { derivedStateOf { carouselState.layoutInfo } }
-                    val snapBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
+                    val snapBehavior = rememberSnapFlingBehavior(lazyListState = carouselState, snapPosition = SnapPosition.Center)
                     val focusedPackage by remember {
                         derivedStateOf {
                             val layout = carouselState.layoutInfo
@@ -851,7 +852,7 @@ private fun NivoraApp() {
                                                 scaleX = 1f - side * 0.24f
                                                 scaleY = 1f - side * 0.16f
                                                 alpha = 1f - side * 0.26f
-                                                cameraDistance = 22f * density
+                                                cameraDistance = 3f * cardWidth.value * density
                                                 shape = RoundedCornerShape(24.dp)
                                                 clip = true
                                                 shadowElevation = (1f - side) * 22.dp.toPx()
