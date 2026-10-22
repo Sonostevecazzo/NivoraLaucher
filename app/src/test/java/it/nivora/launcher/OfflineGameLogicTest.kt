@@ -6,6 +6,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OfflineGameLogicTest {
+
+    @Test
+    fun appCategoriesPreferSpecificAppTypesOverGenericPackageNames() {
+        assertEquals("Produttività", categoryForAppLabel("ChatGPT", "com.openai.chatgpt"))
+        assertEquals("Musica", categoryForAppLabel("YouTube Music", "com.google.android.apps.youtube.music"))
+        assertEquals("Finanza", categoryForAppLabel("Klarna", "com.klarna.android"))
+        assertEquals("Viaggi", categoryForAppLabel("Google Maps", "com.google.android.apps.maps"))
+        assertEquals("Meteo", categoryForAppLabel("MeteoSwiss", "ch.admin.meteoswiss"))
+    }
+
+    @Test
+    fun appCategoriesRecognizeBrowserSocialHealthAndSecurity() {
+        assertEquals("Browser", categoryForAppLabel("Chrome", "com.android.chrome"))
+        assertEquals("Social", categoryForAppLabel("WhatsApp", "com.whatsapp"))
+        assertEquals("Salute", categoryForAppLabel("Samsung Health", "com.sec.android.app.shealth"))
+        assertEquals("Sicurezza", categoryForAppLabel("NordVPN", "com.nordvpn.android"))
+        assertEquals("Fotografia", categoryForAppLabel("Google Photos", "com.google.android.apps.photos"))
+    }
     @Test
     fun snakeTurnBufferRejectsImmediateReverse() {
         assertEquals(SnakeDirection.RIGHT, requestSnakeTurn(SnakeDirection.RIGHT, SnakeDirection.LEFT))
