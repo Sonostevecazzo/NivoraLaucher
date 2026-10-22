@@ -2482,7 +2482,7 @@ private fun ThemePresetPicker(selected: String, accent: Color, onSelect: (String
                                 Spacer(Modifier.height(7.dp))
                                 Text("09:41", color = Color.White, fontSize = 20.sp,
                                     fontWeight = FontWeight.Light, letterSpacing = (-0.7).sp, lineHeight = 22.sp)
-                                Text("GIOVEDÌ  ·  22 OTTOBRE", color = Color.White.copy(alpha = 0.65f),
+                                Text("LA TUA HOME  ·  DESIGN", color = Color.White.copy(alpha = 0.65f),
                                     fontSize = 5.sp, letterSpacing = 0.65.sp)
                                 Spacer(Modifier.weight(1f))
                                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
