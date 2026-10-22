@@ -73,6 +73,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -741,6 +743,20 @@ private fun NivoraApp() {
                     }
                     val focusedIndex = visibleApps.indexOfFirst { it.packageName == focusedPackage }.coerceAtLeast(0)
                     val focusedApp = visibleApps.getOrNull(focusedIndex)
+                    val haptic = LocalHapticFeedback.current
+                    var scrollWasActive by remember { mutableStateOf(false) }
+                    var lastSettledPackage by remember { mutableStateOf<String?>(null) }
+                    LaunchedEffect(focusedPackage, carouselState.isScrollInProgress) {
+                        if (carouselState.isScrollInProgress) {
+                            scrollWasActive = true
+                        } else if (focusedPackage != null) {
+                            if (scrollWasActive && lastSettledPackage != null && lastSettledPackage != focusedPackage) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                            lastSettledPackage = focusedPackage
+                            scrollWasActive = false
+                        }
+                    }
                     val progress = if (visibleApps.size <= 1) 1f else focusedIndex.toFloat() / (visibleApps.size - 1).toFloat()
                     Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -749,7 +765,7 @@ private fun NivoraApp() {
                         }
                         Spacer(Modifier.height(10.dp))
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
-                            val cardWidth = (maxWidth * 0.37f).coerceIn(118.dp, 142.dp)
+                            val cardWidth = (maxWidth * 0.37f).coerceIn(108.dp, 142.dp)
                             val sidePadding = ((maxWidth - cardWidth) / 2f).coerceAtLeast(0.dp)
                             val cardHeight = 258.dp
                             LazyRow(
@@ -783,12 +799,12 @@ private fun NivoraApp() {
                                     val side = (distance / 2f).coerceIn(0f, 1f)
                                     val isFocused = distance < 0.12f
                                     Box(
-                                        Modifier.width(cardWidth)
+                                        Modifier.width(cardWidth).height(174.dp)
                                             .graphicsLayer {
-                                                rotationY = -relativeOffset * 28f
+                                                rotationY = -relativeOffset * 32f
                                                 rotationX = if (isFocused) 0f else 2.5f
-                                                scaleX = 1f - side * 0.16f
-                                                scaleY = 1f - side * 0.12f
+                                                scaleX = 1f - side * 0.24f
+                                                scaleY = 1f - side * 0.16f
                                                 alpha = 1f - side * 0.26f
                                                 cameraDistance = 22f * density
                                                 shape = RoundedCornerShape(24.dp)
@@ -810,13 +826,15 @@ private fun NivoraApp() {
                                             )
                                             .padding(horizontal = 8.dp, vertical = 18.dp)
                                     ) {
-                                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                            if (isFocused) {
-                                                Text("IN PRIMO PIANO", color = accent, fontSize = 8.sp, letterSpacing = 1.3.sp)
-                                                Spacer(Modifier.height(6.dp))
-                                            } else {
-                                                Spacer(Modifier.height(14.dp))
+                                        Column(
+                                            Modifier.fillMaxSize(),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Box(Modifier.height(15.dp), contentAlignment = Alignment.Center) {
+                                                if (isFocused) Text("IN PRIMO PIANO", color = accent, fontSize = 8.sp, letterSpacing = 1.3.sp)
                                             }
+                                            Spacer(Modifier.height(7.dp))
                                             AppTile(
                                                 app, favorites.contains(app.packageName), true, fg, true,
                                                 iconSize.coerceIn(48, 62), fontChoice, iconStyle, accent, iconPackPackage,
@@ -829,8 +847,11 @@ private fun NivoraApp() {
                                                     Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
                                                 }
                                             )
-                                            Spacer(Modifier.height(4.dp))
-                                            if (isFocused) Box(Modifier.width(44.dp).height(2.dp).clip(CircleShape).background(accent))
+                                            Spacer(Modifier.height(8.dp))
+                                            Box(
+                                                Modifier.width(44.dp).height(2.dp).clip(CircleShape)
+                                                    .background(if (isFocused) accent else muted.copy(alpha = 0.18f))
+                                            )
                                         }
                                     }
                                 }
