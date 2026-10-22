@@ -1722,26 +1722,37 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
 }
 
 /**
- * When monochrome mode is enabled, use the original Nivora glyph pack instead
- * of tinting arbitrary vendor artwork. This avoids black-background blobs and
- * gives the app drawer a consistent, recognizable icon language.
+ * Three icon treatments. Unknown apps always keep the real package icon;
+ * Nivora never substitutes a random initial for a missing design.
  */
-private fun iconForDisplay(app: LaunchableApp, tint: Color?): Drawable {
-    if (tint == null) {
-        return app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+private fun iconForDisplay(app: LaunchableApp, style: String, accent: Color): Drawable {
+    fun original(): Drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+    val hasNivoraGlyph = NivoraIconDrawable.hasDesignedGlyph(app.label, app.packageName)
+    return when (style) {
+        "Nivora Flux" -> if (hasNivoraGlyph) {
+            NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux")
+        } else original()
+        "Monocromatiche" -> if (hasNivoraGlyph) {
+            NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
+        } else {
+            original().apply {
+                val matrix = android.graphics.ColorMatrix().apply { setSaturation(0f) }
+                colorFilter = android.graphics.ColorMatrixColorFilter(matrix)
+            }
+        }
+        else -> original()
     }
-    return NivoraIconDrawable(app.label, app.packageName, tint.toArgb())
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconTint: Color?,
+private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconStyle: String, iconAccent: Color,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { view -> view.setImageDrawable(iconForDisplay(app, iconTint)); view.clearColorFilter() },
+                update = { view -> view.setImageDrawable(iconForDisplay(app, iconStyle, iconAccent)); view.clearColorFilter() },
                 modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
@@ -1755,11 +1766,11 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, iconTint: Color?, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, iconStyle: String, iconAccent: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { view -> view.setImageDrawable(iconForDisplay(app, iconTint)); view.clearColorFilter() },
+            update = { view -> view.setImageDrawable(iconForDisplay(app, iconStyle, iconAccent)); view.clearColorFilter() },
             modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
