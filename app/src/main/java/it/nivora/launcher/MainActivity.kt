@@ -1097,7 +1097,7 @@ private fun NivoraApp() {
                                 FilterChip(
                                     selected = activeCategory == category,
                                     onClick = { selectedDrawerCategory = category },
-                                    label = { Text("${categoryDisplayName(category)} · ${groupedApps[category]?.size ?: 0}") }
+                                    label = { Text(if (category.startsWith("Altre · ")) "${category.substringAfter("Altre · ")} · ${groupedApps[category]?.size ?: 0}" else "${categoryDisplayName(category)} · ${groupedApps[category]?.size ?: 0}") }
                                 )
                             }
                         }
