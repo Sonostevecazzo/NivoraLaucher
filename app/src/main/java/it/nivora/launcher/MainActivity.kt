@@ -525,25 +525,20 @@ private fun NivoraApp() {
         }
     }
     val fg = if (dark) Color(0xFFF4F4F0) else Color(0xFF111212)
-    val muted = if (dark) Color(0xFFB8BEBA) else Color(0xFF555955)
+    val muted = if (dark) Color(0xFFD0D5D2) else Color(0xFF454B48)
     val panel = if (dark) Color(0xFF30363A).copy(alpha = 0.62f) else Color(0xFFDDE2E4).copy(alpha = 0.72f)
     // Dialog content stays opaque; translucent glass is reserved for cards and the Home surface.
     val dialogSurface = if (dark) Color(0xFF171A1E) else Color(0xFFF7F8F9)
     val selectedFont = when (fontChoice) {
-        "Mono iOS", "Mono" -> FontFamily.Monospace
-        "Serif iOS", "Serif" -> FontFamily.Serif
-        "Cursive" -> FontFamily.Cursive
-        "Rounded iOS", "Rounded" -> FontFamily(Typeface.create("sans-serif-rounded", Typeface.NORMAL))
+        "Editorial" -> FontFamily(Typeface.create("serif", Typeface.NORMAL))
+        "Terminal" -> FontFamily(Typeface.create("monospace", Typeface.NORMAL))
+        "Rounded" -> FontFamily(Typeface.create("sans-serif-rounded", Typeface.NORMAL))
         "Condensed" -> FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
-        "Sans-serif Black" -> FontFamily(Typeface.create("sans-serif-black", Typeface.NORMAL))
-        "Sans-serif Thin" -> FontFamily(Typeface.create("sans-serif-thin", Typeface.NORMAL))
-        "Casual" -> FontFamily(Typeface.create("casual", Typeface.NORMAL))
-        "Serif Monospace" -> FontFamily(Typeface.create("serif-monospace", Typeface.NORMAL))
-        "Small Caps" -> FontFamily(Typeface.create("sans-serif-smallcaps", Typeface.NORMAL))
-        "iOS Style" -> FontFamily(Typeface.create("sans-serif", Typeface.NORMAL))
-        "iOS Light" -> FontFamily(Typeface.create("sans-serif-light", Typeface.NORMAL))
-        "iOS Medium" -> FontFamily(Typeface.create("sans-serif-medium", Typeface.NORMAL))
-        else -> FontFamily.Default
+        "Heavy" -> FontFamily(Typeface.create("sans-serif-black", Typeface.NORMAL))
+        "Handwritten" -> FontFamily(Typeface.create("casual", Typeface.NORMAL))
+        "Elegant" -> FontFamily(Typeface.create("cursive", Typeface.NORMAL))
+        "Modern" -> FontFamily(Typeface.create("sans-serif", Typeface.NORMAL))
+        else -> FontFamily(Typeface.create("sans-serif-medium", Typeface.NORMAL))
     }
     val customTypography = Typography().let { base -> base.copy(
         displayLarge = base.displayLarge.copy(fontFamily = selectedFont), displayMedium = base.displayMedium.copy(fontFamily = selectedFont),
@@ -1011,8 +1006,8 @@ private fun NivoraApp() {
                             }
                         } else {
                             Column(Modifier.weight(1f)) {
-                                Text("Impostazioni", color = fg, fontSize = 27.sp, fontWeight = FontWeight.Normal)
-                                Text("Rendi Nivora davvero tuo", color = muted, fontSize = 13.sp)
+                                Text("Impostazioni", color = fg, fontSize = 30.sp, fontWeight = FontWeight.SemiBold, lineHeight = 35.sp)
+                                Text("Tutto quello che ti serve, senza perderti nei menu.", color = muted, fontSize = 14.sp, lineHeight = 20.sp)
                             }
                         }
                         if (settingsPage != "Menu") Spacer(Modifier.weight(1f))
@@ -1030,7 +1025,7 @@ private fun NivoraApp() {
                     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         when (settingsPage) {
                             "Menu" -> {
-                                Text("PERSONALIZZA", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                Text("LA TUA ESPERIENZA", color = muted, fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
                                 SettingsNavigationItem("Produttività", "Preferiti, ricerca e accesso alle app", "☆", fg, muted, accent) { settingsPage = "Produttività" }
                                 SettingsNavigationItem("Temi", "Colori, sfondi e stile della schermata Home", "✧", fg, muted, accent) { settingsPage = "Temi" }
                                 SettingsNavigationItem("Schermata Home", "Layout, etichette e disposizione", "⌂", fg, muted, accent) { settingsPage = "Schermata Home" }
@@ -1038,7 +1033,7 @@ private fun NivoraApp() {
                                 SettingsNavigationItem("Icone e applicazioni", "Aspetto e organizzazione delle app", "▦", fg, muted, accent) { settingsPage = "Icone e applicazioni" }
                                 SettingsNavigationItem("Tipografia", "Caratteri e leggibilità", "Aa", fg, muted, accent) { settingsPage = "Tipografia" }
                                 Spacer(Modifier.height(10.dp))
-                                Text("ALTRO", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
+                                Text("SUPPORTO E STRUMENTI", color = muted, fontSize = 12.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
                                 SettingsNavigationItem("Aiuto e feedback", "Informazioni e supporto per Nivora", "?", fg, muted, accent) { settingsPage = "Aiuto e feedback" }
                                 SettingsNavigationItem("Community", "Contribuisci e scopri il progetto", "♡", fg, muted, accent) { settingsPage = "Community" }
                                 SettingsNavigationItem("Nivora Lab", "Widget, giochi offline e funzioni sperimentali", "✦", fg, muted, accent) { settingsPage = "Nivora Lab" }
@@ -1296,10 +1291,21 @@ private fun NivoraApp() {
                             }
                             "Tipografia" -> {
                                 SettingsSection("Tipografia", "Font di sistema disponibili offline, con anteprima immediata.", accent) {
-                                    SettingChoice("Famiglia tipografica", fontChoice, "System", "iOS Style", "iOS Light", "iOS Medium", "Rounded iOS", "Mono iOS", "Serif iOS", "Condensed", "Rounded", "Mono", "Serif", "Cursive", "Sans-serif Black", "Sans-serif Thin", "Casual", "Serif Monospace", "Small Caps") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
-                                    HorizontalDivider(color = muted.copy(alpha = 0.18f))
-                                    Text("Aa Bb Cc 012345", color = fg, fontSize = 25.sp, fontFamily = selectedFont)
-                                    Text("Anteprima del carattere selezionato", color = muted, fontSize = 11.sp)
+                                    Text("Scegli uno stile davvero diverso", color = fg, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    SettingChoice("Carattere", fontChoice, "System", "Modern", "Editorial", "Terminal", "Rounded", "Condensed", "Heavy", "Handwritten", "Elegant") { fontChoice = it; prefs.edit().putString("fontChoice", it).apply() }
+                                    HorizontalDivider(color = muted.copy(alpha = 0.22f))
+                                    Text("Aa Bb Cc 012345", color = fg, fontSize = 28.sp, fontFamily = selectedFont, lineHeight = 34.sp)
+                                    Text(when (fontChoice) {
+                                        "Editorial" -> "Editorial · serif ad alto contrasto"
+                                        "Terminal" -> "Terminal · tecnico e monospaziato"
+                                        "Rounded" -> "Rounded · morbido e contemporaneo"
+                                        "Condensed" -> "Condensed · compatto e deciso"
+                                        "Heavy" -> "Heavy · forte e geometrico"
+                                        "Handwritten" -> "Handwritten · informale e personale"
+                                        "Elegant" -> "Elegant · calligrafico"
+                                        "Modern" -> "Modern · essenziale e pulito"
+                                        else -> "System · leggibile e bilanciato"
+                                    }, color = muted, fontSize = 13.sp, lineHeight = 18.sp)
                                 }
                             }
                             "Aiuto e feedback" -> {
@@ -2163,18 +2169,23 @@ private fun SettingsNavigationItem(
     onClick: () -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(horizontal = 4.dp, vertical = 13.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.46f))
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-            Text(glyph, color = accent, fontSize = 24.sp, fontWeight = FontWeight.Light)
+        Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp))
+            .background(accent.copy(alpha = 0.13f)), contentAlignment = Alignment.Center) {
+            Text(glyph, color = accent, fontSize = 25.sp, fontWeight = FontWeight.Medium)
         }
         Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = fg, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = muted, fontSize = 12.sp, lineHeight = 16.sp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = fg, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, lineHeight = 21.sp)
+            Text(subtitle, color = muted, fontSize = 13.sp, lineHeight = 18.sp)
         }
-        Text("›", color = muted, fontSize = 25.sp)
+        Spacer(Modifier.width(8.dp))
+        Text("›", color = accent, fontSize = 27.sp, fontWeight = FontWeight.Light)
     }
 }
 
