@@ -726,7 +726,7 @@ private fun NivoraApp() {
                 } else if (appDrawerMode == "Giostra") {
                     LazyRow(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        gridItems(visibleApps, key = { it.packageName }) { app ->
+                        items(visibleApps, key = { it.packageName }) { app ->
                             Box(Modifier.width(92.dp).clip(RoundedCornerShape(20.dp))
                                 .background(panel.copy(alpha = 0.58f))
                                 .border(1.dp, accent.copy(alpha = 0.16f), RoundedCornerShape(20.dp)).padding(horizontal = 6.dp, vertical = 12.dp)) {
@@ -760,7 +760,7 @@ private fun NivoraApp() {
                                             Text("SCORRI  →", color = muted, fontSize = 9.sp, letterSpacing = 1.sp)
                                         }
                                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 4.dp)) {
-                                            gridItems(categoryApps, key = { it.packageName }) { app ->
+                                            items(categoryApps, key = { it.packageName }) { app ->
                                                 Box(Modifier.width(84.dp).clip(RoundedCornerShape(16.dp))
                                                     .background(panel.copy(alpha = 0.42f)).padding(horizontal = 5.dp, vertical = 10.dp)) {
                                                     AppTile(app, favorites.contains(app.packageName), true, fg, true, 44, fontChoice, iconStyle, accent, iconPackPackage,
