@@ -97,22 +97,53 @@ import kotlin.math.abs
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
-private val categoryOrder = listOf("Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Produttività", "Shopping", "Viaggi", "Salute", "Sistema", "Altro")
+private val appDrawerModes = listOf("Griglia", "Lista", "Giostra", "Categorie")
+private val categoryOrder = listOf(
+    "Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Fotografia",
+    "Produttività", "Shopping", "Viaggi", "Salute", "Meteo", "Sicurezza",
+    "Sistema", "Utilità", "Altro"
+)
 
-private fun categoryForApp(app: LaunchableApp): String {
-    val s = (app.label + " " + app.packageName).lowercase(Locale.ITALIAN)
+private fun categoryForApp(app: LaunchableApp): String = categoryForAppLabel(app.label, app.packageName)
+
+/** Pure classifier so precedence rules can be tested without Android framework objects. */
+internal fun categoryForAppLabel(label: String, packageName: String): String {
+    val s = (label + " " + packageName).lowercase(Locale.ITALIAN)
+    fun hasAny(vararg terms: String) = terms.any { s.contains(it) }
     return when {
-        listOf("revolut", "bank", "banca", "wallet", "bitcoin", "crypto", "trading", "invest", "broker", "klarna", "paypal", "postepay", "intesa", "unicredit", "coinbase", "metamask", "bull", "bluewallet", "finance", "finanza", "lotter", "lotto").any { s.contains(it) } -> "Finanza"
-        listOf("game", "gioch", "playstation", "xbox", "steam", "epic", "soccer", "football", "calcio", "luna", "lemuroid", "arcade", "minecraft", "roblox", "gaming").any { s.contains(it) } -> "Giochi"
-        listOf("instagram", "facebook", "whatsapp", "telegram", "messagg", "message", "discord", "tiktok", "snapchat", "reddit", "social", "threads", "twitter", "signal", "chat", "linkedin").any { s.contains(it) } -> "Social"
-        listOf("chrome", "browser", "firefox", "brave", "opera", "edge", "comet", "internet", "samsunginternet", "vivaldi").any { s.contains(it) } -> "Browser"
-        listOf("music", "musica", "spotify", "deezer", "soundcloud", "youtube music", "tidal", "podcast", "audio", "player").any { s.contains(it) } -> "Musica"
-        listOf("youtube", "netflix", "prime video", "disney", "video", "meet", "twitch", "iptv", "stream", "media").any { s.contains(it) } -> "Video"
-        listOf("drive", "docs", "document", "office", "calendar", "calendario", "notes", "notion", "keep", "copilot", "chatgpt", "claude", "deepseek", "codespaces", "adobe", "scanner", "scan", "authenticator", "keyscafe", "keyboard", "calculator", "calcolatrice", "file", "archivio", "cloud", "dropbox").any { s.contains(it) } -> "Produttività"
-        listOf("amazon", "shopping", "shop", "ebay", "aliexpress", "deliveroo", "food", "mcdonald", "keepa", "market", "store", "retail").any { s.contains(it) } -> "Shopping"
-        listOf("maps", "mappe", "waze", "uber", "bolt", "booking", "airbnb", "trip", "travel", "viagg", "flight", "trenitalia").any { s.contains(it) } -> "Viaggi"
-        listOf("health", "salute", "medical", "doctor", "doctolib", "fitness", "med", "meteo", "weather", "life360", "family").any { s.contains(it) } -> "Salute"
-        listOf("settings", "impostazioni", "android", "samsung", "system", "telefono", "phone", "contacts", "contatti", "camera", "fotocamera", "clock", "orologio", "galaxy", "smartthings").any { s.contains(it) } -> "Sistema"
+        hasAny("revolut", "bank", "banca", "wallet", "bitcoin", "crypto", "trading", "invest", "broker",
+            "klarna", "paypal", "postepay", "intesa", "unicredit", "coinbase", "metamask", "bluewallet",
+            "finance", "finanza", "trade republic", "satispay", "fineco", "wise", "n26", "hype") -> "Finanza"
+        hasAny("playstation", "xbox", "steam", "epic games", "luna", "lemuroid", "arcade", "minecraft",
+            "roblox", "gaming", "game", "gioch", "clash", "supercell", "nintendo") -> "Giochi"
+        hasAny("spotify", "youtube music", "deezer", "soundcloud", "tidal", "podcast", "musica", "music player",
+            "amazon music", "apple music") -> "Musica"
+        hasAny("chrome", "browser", "firefox", "brave", "opera", "microsoft edge", "comet", "internet",
+            "samsunginternet", "vivaldi") -> "Browser"
+        hasAny("instagram", "facebook", "whatsapp", "telegram", "messenger", "discord", "tiktok", "snapchat",
+            "reddit", "social", "threads", "twitter", "x.com", "signal", "linkedin", "mastodon", "wechat",
+            "viber", "skype") -> "Social"
+        hasAny("youtube", "netflix", "prime video", "disney+", "disney plus", "twitch", "iptv", "video player",
+            "vlc", "mx player", "plex", "streaming", "media player", "google tv", "rakuten tv", "meet") -> "Video"
+        hasAny("camera", "fotocamera", "gallery", "galleria", "photos", "foto", "lightroom", "snapseed",
+            "picsart", "photoshop express", "capcut", "inshot", "canva", "video editor") -> "Fotografia"
+        hasAny("drive", "docs", "document", "office", "calendar", "calendario", "notes", "notion", "keep",
+            "copilot", "chatgpt", "claude", "deepseek", "codespaces", "adobe", "scanner", "scan", "keyboard",
+            "calculator app", "calculator", "calcolatrice", "dropbox", "google tasks", "todoist", "evernote",
+            "obsidian", "onenote", "libreoffice", "writer", "sheets", "excel", "word", "powerpoint") -> "Produttività"
+        hasAny("amazon", "shopping", "shop", "ebay", "aliexpress", "deliveroo", "food", "mcdonald",
+            "keepa", "marketplace", "store", "retail", "zalando", "vinted", "shein", "temu", "ikea") -> "Shopping"
+        hasAny("google maps", "maps", "mappe", "waze", "uber", "bolt", "booking", "airbnb", "trip", "travel",
+            "viagg", "flight", "trenitalia", "trainline", "moovit", "citymapper", "blablacar", "my bmw") -> "Viaggi"
+        hasAny("samsung health", "health connect", "health", "salute", "medical", "doctor", "doctolib", "fitness",
+            "wellness", "workout", "gym", "pharmacy", "farmacia", "fitbit", "strava") -> "Salute"
+        hasAny("meteo", "weather", "forecast", "accuweather", "meteoswiss", "ilmeteo", "windy", "yr.no") -> "Meteo"
+        hasAny("nordvpn", "vpn", "bitwarden", "1password", "proton pass", "authenticator", "authy", "antivirus",
+            "security", "sicurezza", "find my device", "life360", "family locator", "password manager") -> "Sicurezza"
+        hasAny("settings", "impostazioni", "android", "samsung", "system", "telefono", "phone", "contacts",
+            "contatti", "clock", "orologio", "galaxy", "smartthings", "bluetooth", "launcher", "home app") -> "Sistema"
+        hasAny("file manager", "files", "file", "archivio", "utility", "utilities", "unit converter", "torcia",
+            "flashlight", "qr code", "qr scanner", "timer", "recorder", "registratore", "voice recorder") -> "Utilità"
         else -> "Altro"
     }
 }
@@ -124,11 +155,15 @@ private fun categorySymbol(category: String): String = when (category) {
     "Browser" -> "◉"
     "Musica" -> "♫"
     "Video" -> "▷"
+    "Fotografia" -> "✧"
     "Produttività" -> "▤"
     "Shopping" -> "◇"
     "Viaggi" -> "⌖"
     "Salute" -> "✚"
+    "Meteo" -> "☼"
+    "Sicurezza" -> "⬡"
     "Sistema" -> "⚙"
+    "Utilità" -> "⌘"
     else -> "✦"
 }
 
@@ -187,7 +222,7 @@ private fun NivoraApp() {
     var favoritesOnly by remember { mutableStateOf(true) }
     var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
     var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
-    var appDrawerMode by remember { mutableStateOf((prefs.getString("appDrawerMode", "Griglia") ?: "Griglia").let { if (it in setOf("Griglia", "Giostra", "Categorie")) it else "Griglia" }) }
+    var appDrawerMode by remember { mutableStateOf((prefs.getString("appDrawerMode", if (prefs.getBoolean("grid", true)) "Griglia" else "Lista") ?: "Griglia").let { if (it in appDrawerModes) it else "Griglia" }) }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
@@ -312,7 +347,7 @@ private fun NivoraApp() {
                             require(value is Number) { "Tipo non valido per la preferenza $key." }
                             editor.putInt(key, value.toInt())
                         }
-                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy", "iconStyle", "iconPackPackage" -> {
+                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy", "iconStyle", "iconPackPackage", "appDrawerMode" -> {
                             val value = saved.opt(key)
                             require(value is String) { "Tipo non valido per la preferenza $key." }
                             editor.putString(key, value)
@@ -628,7 +663,7 @@ private fun NivoraApp() {
                         Text("APPLICAZIONI", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
                         Spacer(Modifier.weight(1f))
                         IconButton(onClick = {
-                            appDrawerMode = when (appDrawerMode) { "Griglia" -> "Giostra"; "Giostra" -> "Categorie"; else -> "Griglia" }
+                            appDrawerMode = appDrawerModes[(appDrawerModes.indexOf(appDrawerMode).coerceAtLeast(0) + 1) % appDrawerModes.size]
                             grid = appDrawerMode == "Griglia"
                             prefs.edit().putString("appDrawerMode", appDrawerMode).putBoolean("grid", grid).apply()
                         }) {
@@ -663,7 +698,7 @@ private fun NivoraApp() {
                         Box {
                             TextButton(onClick = { modeExpanded = true }) { Text(appDrawerMode.uppercase(), fontSize = 9.sp, color = accent) }
                             DropdownMenu(expanded = modeExpanded, onDismissRequest = { modeExpanded = false }) {
-                                listOf("Griglia", "Giostra", "Categorie").forEach { choice ->
+                                appDrawerModes.forEach { choice ->
                                     DropdownMenuItem(text = { Text(choice) }, onClick = {
                                         appDrawerMode = choice
                                         grid = choice == "Griglia"
@@ -730,6 +765,10 @@ private fun NivoraApp() {
                     }
                 } else if (appDrawerMode == "Giostra") {
                     val carouselState = rememberLazyListState()
+                    val carouselPackageKeys = visibleApps.map { it.packageName }
+                    LaunchedEffect(carouselPackageKeys) {
+                        if (carouselPackageKeys.isNotEmpty()) carouselState.scrollToItem(0)
+                    }
                     val carouselLayout by remember { derivedStateOf { carouselState.layoutInfo } }
                     val snapBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
                     val focusedPackage by remember {
@@ -836,7 +875,7 @@ private fun NivoraApp() {
                                             }
                                             Spacer(Modifier.height(7.dp))
                                             AppTile(
-                                                app, favorites.contains(app.packageName), true, fg, true,
+                                                app, favorites.contains(app.packageName), true, fg, false,
                                                 iconSize.coerceIn(48, 62), fontChoice, iconStyle, accent, iconPackPackage,
                                                 onClick = { launchApp(context, app) { packageName ->
                                                     recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
@@ -870,7 +909,7 @@ private fun NivoraApp() {
                         Spacer(Modifier.height(12.dp))
                         Text("SCORRI · SI ALLINEA AL CENTRO · TOCCA PER APRIRE", color = muted, fontSize = 9.sp, letterSpacing = 0.8.sp, textAlign = TextAlign.Center)
                     }
-                } else {
+                } else if (appDrawerMode == "Categorie") {
                     val groupedApps = visibleApps.groupBy { categoryForApp(it) }
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         categoryOrder.forEach { category ->
@@ -906,6 +945,24 @@ private fun NivoraApp() {
                                     }
                                 }
                             }
+                        }
+                    }
+                } else {
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+                        items(visibleApps, key = { it.packageName }) { app ->
+                            AppListRow(
+                                app, favorites.contains(app.packageName), fg, muted, iconStyle, accent, iconPackPackage,
+                                onClick = {
+                                    launchApp(context, app) { packageName ->
+                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                    }
+                                },
+                                onLongClick = {
+                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                }
+                            )
                         }
                     }
                 }
@@ -1161,7 +1218,11 @@ private fun NivoraApp() {
                                     SettingSwitch("Mostra logo Nivora", showLogo) { showLogo = it; prefs.edit().putBoolean("showLogo", it).apply() }
                                     SettingSwitch("Mostra nomi delle app", showLabels) { showLabels = it; prefs.edit().putBoolean("labels", it).apply() }
                                     SettingSwitch("Layout compatto", compact) { compact = it; prefs.edit().putBoolean("compact", it).apply() }
-                                    SettingChoice("Disposizione", if (grid) "Griglia" else "Lista", "Griglia", "Lista") { grid = it == "Griglia"; prefs.edit().putBoolean("grid", grid).apply() }
+                                    SettingChoice("Vista del cassetto app", appDrawerMode, "Griglia", "Lista", "Giostra", "Categorie") { choice ->
+                                        appDrawerMode = choice
+                                        grid = choice == "Griglia"
+                                        prefs.edit().putString("appDrawerMode", choice).putBoolean("grid", grid).apply()
+                                    }
                                     SettingChoice("Colonne griglia", "$columns", "3", "4", "5") { columns = it.toInt(); prefs.edit().putInt("columns", columns).apply() }
                                 }
                             }
@@ -1424,6 +1485,7 @@ private fun NivoraApp() {
                     prefs.edit().clear().apply()
                     dark = true
                     grid = true
+                    appDrawerMode = "Griglia"
                     showLabels = true
                     compact = false
                     columns = 4
