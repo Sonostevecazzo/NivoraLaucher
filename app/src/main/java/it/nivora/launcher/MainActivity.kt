@@ -820,7 +820,7 @@ private fun NivoraApp() {
                                                             customWallpaperUri = values[6].takeIf { it.isNotBlank() }
                                                         }
                                                         prefs.edit().putString("themePreset", themePreset).putString("wallpaper", wallpaper)
-                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).putString("iconStyle", iconStyle).putString("fontChoice", fontChoice)
+                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).putString("iconStyle", iconStyle).putString("iconPackPackage", iconPackPackage).putString("fontChoice", fontChoice)
                                                             .apply()
                                                         prefs.edit().apply {
                                                             if (customWallpaperUri.isNullOrBlank()) remove("customWallpaperUri") else putString("customWallpaperUri", customWallpaperUri)
