@@ -98,6 +98,9 @@ import kotlin.math.abs
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
 private val appDrawerModes = listOf("Griglia", "Lista", "Giostra", "Categorie")
+
+internal fun normalizeAppDrawerMode(savedMode: String?, legacyGrid: Boolean): String =
+    savedMode?.takeIf { it in appDrawerModes } ?: if (legacyGrid) "Griglia" else "Lista"
 private val categoryOrder = listOf(
     "Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Fotografia",
     "Produttività", "Shopping", "Viaggi", "Salute", "Meteo", "Sicurezza",
@@ -225,7 +228,7 @@ private fun NivoraApp() {
     var favoritesOnly by remember { mutableStateOf(true) }
     var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
     var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
-    var appDrawerMode by remember { mutableStateOf((prefs.getString("appDrawerMode", if (prefs.getBoolean("grid", true)) "Griglia" else "Lista") ?: "Griglia").let { if (it in appDrawerModes) it else "Griglia" }) }
+    var appDrawerMode by remember { mutableStateOf(normalizeAppDrawerMode(prefs.getString("appDrawerMode", null), prefs.getBoolean("grid", true))) }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
