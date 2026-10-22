@@ -32,6 +32,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -724,23 +726,47 @@ private fun NivoraApp() {
                         }
                     }
                 } else if (appDrawerMode == "Giostra") {
-                    LazyRow(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        items(visibleApps, key = { it.packageName }) { app ->
-                            Box(Modifier.width(92.dp).clip(RoundedCornerShape(20.dp))
-                                .background(panel.copy(alpha = 0.58f))
-                                .border(1.dp, accent.copy(alpha = 0.16f), RoundedCornerShape(20.dp)).padding(horizontal = 6.dp, vertical = 12.dp)) {
-                                AppTile(app, favorites.contains(app.packageName), true, fg, true, iconSize.coerceIn(44, 56), fontChoice, iconStyle, accent, iconPackPackage,
-                                    onClick = { launchApp(context, app) { packageName ->
-                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
-                                    } },
-                                    onLongClick = {
-                                        favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                        Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                    })
+                    val carouselState = rememberLazyListState()
+                    val carouselLayout by remember { derivedStateOf { carouselState.layoutInfo } }
+                    Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text("N I V O R A   /   3D CAROUSEL", color = accent, fontSize = 9.sp, letterSpacing = 2.sp)
+                        Spacer(Modifier.height(12.dp))
+                        LazyRow(state = carouselState, modifier = Modifier.fillMaxWidth().height(250.dp),
+                            contentPadding = PaddingValues(horizontal = 104.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            items(visibleApps, key = { it.packageName }) { app ->
+                                val info = carouselLayout.visibleItemsInfo.firstOrNull { it.key == app.packageName }
+                                val viewportCenter = (carouselLayout.viewportStartOffset + carouselLayout.viewportEndOffset) / 2f
+                                val itemCenter = info?.let { it.offset + it.size / 2f } ?: viewportCenter
+                                val depth = ((itemCenter - viewportCenter) / (viewportCenter.coerceAtLeast(1f))).coerceIn(-1f, 1f)
+                                val distance = kotlin.math.abs(depth)
+                                Box(Modifier.width(126.dp).graphicsLayer {
+                                    rotationY = -depth * 54f
+                                    scaleX = 1f - distance * 0.24f
+                                    scaleY = 1f - distance * 0.18f
+                                    alpha = 1f - distance * 0.24f
+                                    cameraDistance = 22f * density
+                                    translationZ = (1f - distance) * 28.dp.toPx()
+                                }.clip(RoundedCornerShape(24.dp))
+                                    .background(Brush.verticalGradient(listOf(panel.copy(alpha = 0.92f), panel.copy(alpha = 0.48f))))
+                                    .border(1.dp, accent.copy(alpha = 0.18f + (1f - distance) * 0.35f), RoundedCornerShape(24.dp))
+                                    .padding(horizontal = 8.dp, vertical = 18.dp)) {
+                                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        AppTile(app, favorites.contains(app.packageName), true, fg, true, iconSize.coerceIn(48, 62), fontChoice, iconStyle, accent, iconPackPackage,
+                                            onClick = { launchApp(context, app) { packageName ->
+                                                recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                                prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                            } },
+                                            onLongClick = {
+                                                favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                                Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                            })
+                                    }
+                                }
                             }
                         }
+                        Spacer(Modifier.height(12.dp))
+                        Text("SCORRI LATERALMENTE  ·  TOCCA PER APRIRE", color = muted, fontSize = 9.sp, letterSpacing = 1.2.sp)
                     }
                 } else {
                     val groupedApps = visibleApps.groupBy { categoryForApp(it) }
