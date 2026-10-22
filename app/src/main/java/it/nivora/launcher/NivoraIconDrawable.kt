@@ -27,7 +27,7 @@ internal class NivoraIconDrawable(
         SHOPPING, TV, ANDROID, ANIMAL, MUSIC, FOLDER, SHIELD, MAIL, AUTH, CAR,
         BOLT, WALLET, BROWSER, BITCOIN, CALCULATOR, CALENDAR, CAMERA, AI, ID,
         PHONE, CONTACTS, MESSAGE, VIDEO, MAP, SETTINGS, CLOCK, PHOTOS, BANK,
-        CLOUD, CODE, HEALTH, BOOK, SPORTS, FASHION, DOCUMENT, GAME, GENERIC
+        CLOUD, CODE, HEALTH, BOOK, SPORTS, FASHION, DOCUMENT, SCAN, GAME, GENERIC
     }
 
     private val appLabel = label.trim()
@@ -164,6 +164,13 @@ internal class NivoraIconDrawable(
                 val p2 = Path().apply { moveTo(40f, 68f); lineTo(55f, 31f); lineTo(64f, 31f); lineTo(50f, 68f); close() }
                 val p3 = Path().apply { moveTo(57f, 68f); lineTo(71f, 31f); lineTo(79f, 31f); lineTo(67f, 68f); close() }
                 canvas.drawPath(p1, ink); canvas.drawPath(p2, ink); canvas.drawPath(p3, ink)
+            }
+            Glyph.SCAN -> {
+                line(canvas, 24f, 39f, 24f, 24f); line(canvas, 24f, 24f, 39f, 24f)
+                line(canvas, 61f, 24f, 76f, 24f); line(canvas, 76f, 24f, 76f, 39f)
+                line(canvas, 24f, 61f, 24f, 76f); line(canvas, 24f, 76f, 39f, 76f)
+                line(canvas, 61f, 76f, 76f, 76f); line(canvas, 76f, 61f, 76f, 76f)
+                line(canvas, 35f, 50f, 65f, 50f); dot(canvas, 50f, 50f, 4.5f, true)
             }
             Glyph.DOCUMENT -> {
                 val p = Path().apply {
@@ -398,7 +405,8 @@ internal class NivoraIconDrawable(
                 has("amazon luna", "luna", "gaming", "game", "steam", "xbox", "playstation") -> Glyph.GAME
                 has("adidas", "fashion", "clothing", "apparel", "sneaker") -> Glyph.FASHION
                 has("ac milan", "football", "soccer", "sports", "sport club") -> Glyph.SPORTS
-                has("adobe", "acrobat", "pdf", "scanner", "scan", "document", "documenti") -> Glyph.DOCUMENT
+                has("adobe scan", "scanner", "scan document") -> Glyph.SCAN
+                has("adobe", "acrobat", "pdf", "document", "documenti") -> Glyph.DOCUMENT
                 has("allianz") -> Glyph.SHIELD
                 has("cloudflare") -> Glyph.SHIELD
                 has("dropbox", "google drive", "drive", "cloud") -> Glyph.CLOUD
