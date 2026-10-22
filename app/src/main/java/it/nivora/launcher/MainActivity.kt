@@ -746,7 +746,7 @@ private fun NivoraApp() {
                                     scaleY = 1f - distance * 0.18f
                                     alpha = 1f - distance * 0.24f
                                     cameraDistance = 22f * density
-                                    translationZ = (1f - distance) * 28.dp.toPx()
+                                    shadowElevation = (1f - distance) * 18.dp.toPx()
                                 }.clip(RoundedCornerShape(24.dp))
                                     .background(Brush.verticalGradient(listOf(panel.copy(alpha = 0.92f), panel.copy(alpha = 0.48f))))
                                     .border(1.dp, accent.copy(alpha = 0.18f + (1f - distance) * 0.35f), RoundedCornerShape(24.dp))
