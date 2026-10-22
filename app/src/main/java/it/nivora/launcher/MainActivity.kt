@@ -111,9 +111,9 @@ private val appDrawerModes = listOf("Griglia", "Lista", "Giostra", "Categorie")
 internal fun normalizeAppDrawerMode(savedMode: String?, legacyGrid: Boolean): String =
     savedMode?.takeIf { it in appDrawerModes } ?: if (legacyGrid) "Griglia" else "Lista"
 private val categoryOrder = listOf(
-    "Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Notizie", "Fotografia",
-    "Produttività", "Shopping", "Viaggi", "Salute", "Meteo", "Sicurezza",
-    "Sistema", "Utilità", "Altro"
+    "Finanza", "Comunicazione", "Social", "Browser", "Giochi", "Video", "Musica",
+    "Fotografia", "Produttività", "Shopping", "Viaggi", "Casa smart", "Salute",
+    "Notizie", "Meteo", "Sicurezza", "Sistema", "Utilità", "Altro"
 )
 
 /** Keeps guessed categories useful while preventing unknown apps from becoming one giant bucket. */
@@ -167,9 +167,13 @@ internal fun categoryForAppLabel(label: String, packageName: String): String {
             "amazon music", "apple music") -> "Musica"
         hasAny("chrome", "browser", "firefox", "brave", "opera", "microsoft edge", "comet", "internet",
             "samsunginternet", "vivaldi") -> "Browser"
-        hasAny("instagram", "facebook", "whatsapp", "telegram", "messenger", "discord", "tiktok", "snapchat",
-            "reddit", "social", "threads", "twitter", "x.com", "signal", "linkedin", "mastodon", "wechat",
-            "viber", "skype") -> "Social"
+        hasAny("google home", "home assistant", "smartthings", "smart things", "smart life", "smartlife",
+            "tuya", "philips hue", "hue essentials", "alexa", "eufy", "ring app", "arlo", "tp-link kasa",
+            "kasa smart", "wiz connected", "home connect", "smart home") -> "Casa smart"
+        hasAny("whatsapp", "telegram", "messenger", "signal", "viber", "skype", "messages", "messaggi",
+            "sms", "dialer", "phone app", "telefono", "com.google.android.dialer") -> "Comunicazione"
+        hasAny("instagram", "facebook", "discord", "tiktok", "snapchat",
+            "reddit", "social", "threads", "twitter", "x.com", "linkedin", "mastodon", "wechat") -> "Social"
         hasAny("youtube", "netflix", "prime video", "disney+", "disney plus", "twitch", "iptv", "video player",
             "vlc", "mx player", "plex", "streaming", "media player", "google tv", "rakuten tv", "meet") -> "Video"
         hasAny("camera", "fotocamera", "gallery", "galleria", "photos", "foto", "lightroom", "snapseed",
@@ -204,6 +208,7 @@ private fun categorySymbol(category: String): String {
     if (category.startsWith("Altre · ")) return category.substringAfter("Altre · ").take(1)
     return when (category) {
         "Finanza" -> "◈"
+        "Comunicazione" -> "↗"
         "Giochi" -> "✧"
         "Social" -> "◎"
         "Browser" -> "◉"
@@ -214,6 +219,7 @@ private fun categorySymbol(category: String): String {
         "Produttività" -> "▤"
         "Shopping" -> "◇"
         "Viaggi" -> "⌖"
+        "Casa smart" -> "⌂"
         "Salute" -> "✚"
         "Meteo" -> "☼"
         "Sicurezza" -> "⬡"
@@ -706,19 +712,41 @@ private fun NivoraApp() {
                         Spacer(Modifier.height(12.dp))
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
-                        Text("PREFERITE", color = muted, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.weight(1f))
-                        Text("${favorites.size} SALVATE", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
-                    }
+                    Text("ESPLORA PER CATEGORIA", color = muted, fontSize = 10.sp, letterSpacing = 1.8.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 10.dp))
                     val homeCategoryGroups = groupedAppsForNavigation(apps)
                     val homeCategories = homeCategoryGroups.keys.toList()
-                    if (homeCategories.isNotEmpty()) {
+                    if (apps.isNotEmpty()) {
                         LazyRow(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = PaddingValues(end = 4.dp)
                         ) {
+                            item(key = "category-all-apps") {
+                                Row(
+                                    Modifier.widthIn(min = 132.dp).clip(RoundedCornerShape(16.dp))
+                                        .background(Brush.linearGradient(listOf(accent.copy(alpha = 0.24f), panel.copy(alpha = 0.68f))))
+                                        .border(1.dp, accent.copy(alpha = 0.44f), RoundedCornerShape(16.dp))
+                                        .clickable {
+                                            selectedDrawerCategory = "Tutte"
+                                            showAllApps = true
+                                            query = ""
+                                            favoritesOnly = false
+                                            appDrawerMode = "Categorie"
+                                            grid = false
+                                            prefs.edit().putString("appDrawerMode", "Categorie").putBoolean("grid", false).apply()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    Text("▦", color = accent, fontSize = 23.sp)
+                                    Column {
+                                        Text("Tutte le app", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        Text("${apps.size} installate", color = muted, fontSize = 10.sp)
+                                    }
+                                }
+                            }
                             items(homeCategories, key = { it }) { category ->
                                 val count = homeCategoryGroups[category]?.size ?: 0
                                 Row(
@@ -746,6 +774,11 @@ private fun NivoraApp() {
                                 }
                             }
                         }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
+                        Text("APP PREFERITE", color = muted, fontSize = 10.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text("${favorites.size} SALVATE", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
                 } else {
                     Row(Modifier.padding(top = 20.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
