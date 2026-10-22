@@ -11,7 +11,6 @@ import android.graphics.Shader
 import android.graphics.LinearGradient
 import android.graphics.drawable.Drawable
 import java.util.Locale
-import kotlin.math.min
 
 /**
  * Nivora's original vector glyph set. "Nivora Flux" uses a custom neon-glass
