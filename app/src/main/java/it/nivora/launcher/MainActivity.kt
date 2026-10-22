@@ -1099,7 +1099,7 @@ private fun NivoraApp() {
 
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BottomAction("HOME", !showAllApps, accent, fg, panel) { showAllApps = false; query = ""; searchExpanded = false; favoritesOnly = true }
-                    BottomAction("APP", showAllApps, accent, fg, panel) { showAllApps = true; query = ""; favoritesOnly = false }
+                    BottomAction("APP", showAllApps, accent, fg, panel) { showAllApps = true; query = ""; favoritesOnly = false; selectedDrawerCategory = "Tutte" }
                 }
             }
             }
@@ -2289,7 +2289,7 @@ private fun AlphabetRail(
                         .clickable { onLetterClick(letter.toString()) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(letter.toString(), color = accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                    Text(letter.toString(), color = if (letter == '#') muted else accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center, maxLines = 1)
                 }
             }
