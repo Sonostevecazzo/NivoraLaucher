@@ -1764,7 +1764,7 @@ private fun iconForDisplay(app: LaunchableApp, style: String, accent: Color): Dr
     return when (style) {
         "Nivora Flux" -> if (hasNivoraGlyph) {
             NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux")
-        } else original()
+        } else NivoraFluxFrameDrawable(original(), app.label, app.packageName)
         "Monocromatiche" -> if (hasNivoraGlyph) {
             NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
         } else {
