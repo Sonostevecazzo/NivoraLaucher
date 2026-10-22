@@ -546,6 +546,9 @@ internal class NivoraIconDrawable(
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
     companion object {
+        internal fun hasDesignedGlyph(label: String, packageName: String): Boolean =
+            identify(label.trim().lowercase(Locale.ROOT), packageName.lowercase(Locale.ROOT)) != Glyph.GENERIC
+
         private fun fluxPalette(seed: String): IntArray {
             val palettes = arrayOf(
                 intArrayOf(Color.rgb(10, 37, 62), Color.rgb(20, 103, 143), Color.rgb(49, 228, 219)),
