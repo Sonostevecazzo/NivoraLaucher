@@ -13,11 +13,9 @@ import java.util.Locale
 import kotlin.math.min
 
 /**
- * Original Nivora Mono glyphs.
- *
- * The pack deliberately uses one coherent, restrained visual language rather than
- * tinting arbitrary vendor artwork (which often contains its own dark background).
- * Known app families receive a meaningful symbol; unknown apps get a clean monogram.
+ * Nivora's original vector glyph set. "Nivora Flux" uses a custom neon-glass
+ * treatment; "Monocromatiche" uses restrained single-colour line work.
+ * The app drawer keeps official icons for every app without a mapped glyph.
  */
 internal class NivoraIconDrawable(
     label: String,
@@ -29,7 +27,7 @@ internal class NivoraIconDrawable(
         SHOPPING, TV, ANDROID, ANIMAL, MUSIC, FOLDER, SHIELD, MAIL, AUTH, CAR,
         BOLT, WALLET, BROWSER, BITCOIN, CALCULATOR, CALENDAR, CAMERA, AI, ID,
         PHONE, CONTACTS, MESSAGE, VIDEO, MAP, SETTINGS, CLOCK, PHOTOS, BANK,
-        CLOUD, CODE, HEALTH, BOOK, GENERIC
+        CLOUD, CODE, HEALTH, BOOK, SPORTS, FASHION, DOCUMENT, GAME, GENERIC
     }
 
     private val appLabel = label.trim()
@@ -153,6 +151,40 @@ internal class NivoraIconDrawable(
                 canvas.drawPath(left, ink)
                 canvas.drawPath(right, ink)
                 line(canvas, 50f, 31f, 50f, 76f)
+            }
+            Glyph.SPORTS -> {
+                dot(canvas, 50f, 50f, 29f)
+                line(canvas, 30f, 27f, 42f, 37f); line(canvas, 42f, 37f, 37f, 51f)
+                line(canvas, 37f, 51f, 52f, 61f); line(canvas, 52f, 61f, 69f, 47f)
+                line(canvas, 69f, 47f, 65f, 30f); line(canvas, 37f, 51f, 30f, 68f)
+                line(canvas, 52f, 61f, 53f, 79f); line(canvas, 37f, 37f, 65f, 30f)
+            }
+            Glyph.FASHION -> {
+                val p1 = Path().apply { moveTo(23f, 68f); lineTo(39f, 31f); lineTo(48f, 31f); lineTo(34f, 68f); close() }
+                val p2 = Path().apply { moveTo(40f, 68f); lineTo(55f, 31f); lineTo(64f, 31f); lineTo(50f, 68f); close() }
+                val p3 = Path().apply { moveTo(57f, 68f); lineTo(71f, 31f); lineTo(79f, 31f); lineTo(67f, 68f); close() }
+                canvas.drawPath(p1, ink); canvas.drawPath(p2, ink); canvas.drawPath(p3, ink)
+            }
+            Glyph.DOCUMENT -> {
+                val p = Path().apply {
+                    moveTo(29f, 17f); lineTo(59f, 17f); lineTo(75f, 33f); lineTo(75f, 82f)
+                    lineTo(29f, 82f); close()
+                }
+                canvas.drawPath(p, ink)
+                line(canvas, 59f, 18f, 59f, 34f); line(canvas, 59f, 34f, 75f, 34f)
+                line(canvas, 39f, 49f, 64f, 49f); line(canvas, 39f, 60f, 64f, 60f); line(canvas, 39f, 71f, 58f, 71f)
+            }
+            Glyph.GAME -> {
+                val p = Path().apply {
+                    moveTo(26f, 37f); cubicTo(32f, 28f, 41f, 30f, 48f, 35f)
+                    lineTo(55f, 35f); cubicTo(64f, 30f, 73f, 28f, 79f, 37f)
+                    lineTo(84f, 61f); cubicTo(85f, 70f, 77f, 76f, 71f, 69f)
+                    lineTo(61f, 58f); lineTo(40f, 58f); lineTo(30f, 69f)
+                    cubicTo(24f, 76f, 16f, 70f, 17f, 61f); close()
+                }
+                canvas.drawPath(p, ink)
+                line(canvas, 30f, 41f, 30f, 53f); line(canvas, 24f, 47f, 36f, 47f)
+                dot(canvas, 68f, 43f, 2.5f, true); dot(canvas, 75f, 50f, 2.5f, true)
             }
             Glyph.SHOPPING -> {
                 canvas.drawRoundRect(RectF(27f, 38f, 73f, 76f), 7f, 7f, ink)
@@ -359,17 +391,22 @@ internal class NivoraIconDrawable(
             val s = "$label $pkg"
             fun has(vararg terms: String) = terms.any { s.contains(it) }
             return when {
-                // Match apps commonly installed on the target device before falling back to initials.
+                // Match the most specific app families first; unmatched packages keep their official icon.
+                has("amazon luna", "luna", "gaming", "game", "steam", "xbox", "playstation") -> Glyph.GAME
+                has("adidas", "fashion", "clothing", "apparel", "sneaker") -> Glyph.FASHION
+                has("ac milan", "football", "soccer", "sports", "sport club") -> Glyph.SPORTS
+                has("adobe", "acrobat", "pdf", "scanner", "scan", "document", "documenti") -> Glyph.DOCUMENT
+                has("allianz") -> Glyph.SHIELD
                 has("cloudflare") -> Glyph.SHIELD
                 has("dropbox", "google drive", "drive", "cloud") -> Glyph.CLOUD
-                has("codespaces", "developer tools", "programming", "visual studio code") -> Glyph.CODE
+                has("codespaces", "developer", "developer tools", "programming", "visual studio code") -> Glyph.CODE
                 has("geofence") -> Glyph.MAP
                 has("doctolib", "medical", "healthcare", "clinic", "doctor") -> Glyph.HEALTH
                 has("ebook", "e-book", "kindle", "book reader", "books") -> Glyph.BOOK
                 has("claude", "deepseek", "chatgpt", "gemini", "copilot", "bixby", "assistant", "ai ") -> Glyph.AI
                 has("comet", "brave", "chrome", "firefox", "browser", "internet", "samsunginternet", "webview") -> Glyph.BROWSER
                 has("creative studio", "gallery", "photos", "galleria", "foto") -> Glyph.PHOTOS
-                has("deliveroo", "amazon", "shopping", "ebay", "shop", "marketplace") -> Glyph.SHOPPING
+                has("deliveroo", "aliexpress", "amazon shopping", "shopping", "ebay", "shop", "marketplace") -> Glyph.SHOPPING
                 has("amy 4k", "iptv", "smarttv", "androidtv", "television") -> Glyph.TV
                 label == "android" || pkg.contains("android") && label.contains("android") -> Glyph.ANDROID
                 has("animalingua", "animal", "pet", "paw") -> Glyph.ANIMAL
