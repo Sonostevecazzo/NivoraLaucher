@@ -92,6 +92,41 @@ import kotlin.math.abs
 
 private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
 
+private val categoryOrder = listOf("Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Produttività", "Shopping", "Viaggi", "Salute", "Sistema", "Altro")
+
+private fun categoryForApp(app: LaunchableApp): String {
+    val s = (app.label + " " + app.packageName).lowercase(Locale.ITALIAN)
+    return when {
+        listOf("revolut", "bank", "banca", "wallet", "bitcoin", "crypto", "trading", "invest", "broker", "klarna", "paypal", "postepay", "intesa", "unicredit", "coinbase", "metamask", "bull", "bluewallet", "finance", "finanza", "lotter", "lotto").any { s.contains(it) } -> "Finanza"
+        listOf("game", "gioch", "playstation", "xbox", "steam", "epic", "soccer", "football", "calcio", "luna", "lemuroid", "arcade", "minecraft", "roblox", "gaming").any { s.contains(it) } -> "Giochi"
+        listOf("instagram", "facebook", "whatsapp", "telegram", "messagg", "message", "discord", "tiktok", "snapchat", "reddit", "social", "threads", "twitter", "signal", "chat", "linkedin").any { s.contains(it) } -> "Social"
+        listOf("chrome", "browser", "firefox", "brave", "opera", "edge", "comet", "internet", "samsunginternet", "vivaldi").any { s.contains(it) } -> "Browser"
+        listOf("music", "musica", "spotify", "deezer", "soundcloud", "youtube music", "tidal", "podcast", "audio", "player").any { s.contains(it) } -> "Musica"
+        listOf("youtube", "netflix", "prime video", "disney", "video", "meet", "twitch", "iptv", "stream", "media").any { s.contains(it) } -> "Video"
+        listOf("drive", "docs", "document", "office", "calendar", "calendario", "notes", "notion", "keep", "copilot", "chatgpt", "claude", "deepseek", "codespaces", "adobe", "scanner", "scan", "authenticator", "keyscafe", "keyboard", "calculator", "calcolatrice", "file", "archivio", "cloud", "dropbox").any { s.contains(it) } -> "Produttività"
+        listOf("amazon", "shopping", "shop", "ebay", "aliexpress", "deliveroo", "food", "mcdonald", "keepa", "market", "store", "retail").any { s.contains(it) } -> "Shopping"
+        listOf("maps", "mappe", "waze", "uber", "bolt", "booking", "airbnb", "trip", "travel", "viagg", "flight", "trenitalia").any { s.contains(it) } -> "Viaggi"
+        listOf("health", "salute", "medical", "doctor", "doctolib", "fitness", "med", "meteo", "weather", "life360", "family").any { s.contains(it) } -> "Salute"
+        listOf("settings", "impostazioni", "android", "samsung", "system", "telefono", "phone", "contacts", "contatti", "camera", "fotocamera", "clock", "orologio", "galaxy", "smartthings").any { s.contains(it) } -> "Sistema"
+        else -> "Altro"
+    }
+}
+
+private fun categorySymbol(category: String): String = when (category) {
+    "Finanza" -> "◈"
+    "Giochi" -> "✧"
+    "Social" -> "◎"
+    "Browser" -> "◉"
+    "Musica" -> "♫"
+    "Video" -> "▷"
+    "Produttività" -> "▤"
+    "Shopping" -> "◇"
+    "Viaggi" -> "⌖"
+    "Salute" -> "✚"
+    "Sistema" -> "⚙"
+    else -> "✦"
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
