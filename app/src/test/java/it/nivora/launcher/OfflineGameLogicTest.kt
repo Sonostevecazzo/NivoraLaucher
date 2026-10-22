@@ -23,6 +23,7 @@ class OfflineGameLogicTest {
         assertEquals("Salute", categoryForAppLabel("Samsung Health", "com.sec.android.app.shealth"))
         assertEquals("Sicurezza", categoryForAppLabel("NordVPN", "com.nordvpn.android"))
         assertEquals("Fotografia", categoryForAppLabel("Google Photos", "com.google.android.apps.photos"))
+        assertEquals("Utilità", categoryForAppLabel("Files", "com.google.android.apps.nbu.files"))
     }
     @Test
     fun snakeTurnBufferRejectsImmediateReverse() {
