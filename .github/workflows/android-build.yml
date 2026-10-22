@@ -2,7 +2,7 @@ name: Nivora Android CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feat/nivora-complete-settings-rebuild"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Render Google Play artwork
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         run: |
           sudo apt-get update
           sudo apt-get install -y librsvg2-bin
@@ -35,6 +36,7 @@ jobs:
           file "$RUNNER_TEMP/nivora-store-assets/"*.png
 
       - name: Upload Google Play artwork
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: nivora-store-artwork
