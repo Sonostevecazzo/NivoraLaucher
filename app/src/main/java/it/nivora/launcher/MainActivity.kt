@@ -132,7 +132,11 @@ private fun NivoraApp() {
         mutableStateOf((prefs.getString("themePreset", "Mono Glass") ?: "Mono Glass")
             .let { saved -> if (saved in availableThemes) saved else "Mono Glass" })
     }
-    var monochromeIcons by remember { mutableStateOf(prefs.getBoolean("monochromeIcons", true)) }
+    var iconStyle by remember {
+        mutableStateOf((prefs.getString("iconStyle", "Originali") ?: "Originali")
+            .let { if (it in setOf("Originali", "Nivora Flux", "Monocromatiche")) it else "Originali" })
+    }
+    var monochromeIcons by remember { mutableStateOf(iconStyle == "Monocromatiche") }
     var customWallpaperUri by remember { mutableStateOf(prefs.getString("customWallpaperUri", null)) }
     var customWallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showArcade by remember { mutableStateOf(false) }
@@ -264,7 +268,7 @@ private fun NivoraApp() {
                             require(value is Number) { "Tipo non valido per la preferenza $key." }
                             editor.putInt(key, value.toInt())
                         }
-                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy" -> {
+                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy", "iconStyle" -> {
                             val value = saved.opt(key)
                             require(value is String) { "Tipo non valido per la preferenza $key." }
                             editor.putString(key, value)
@@ -651,7 +655,7 @@ private fun NivoraApp() {
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, if (monochromeIcons) accent else null,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent,
                                 onClick = {
                                     launchApp(context, app) { packageName ->
                                         recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
@@ -667,7 +671,7 @@ private fun NivoraApp() {
                 } else {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted, if (monochromeIcons) accent else null,
+                            AppListRow(app, favorites.contains(app.packageName), fg, muted, iconStyle, accent,
                                 onClick = { launchApp(context, app) { packageName ->
                                     recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
                                     prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
@@ -806,12 +810,14 @@ private fun NivoraApp() {
                                                         wallpaper = values[2]
                                                         dark = values[3].toBoolean()
                                                         monochromeIcons = values[4].toBoolean()
+                                                        iconStyle = values.getOrNull(7)?.takeIf { it in setOf("Originali", "Nivora Flux", "Monocromatiche") }
+                                                            ?: if (monochromeIcons) "Monocromatiche" else "Originali"
                                                         if (values.size >= 7) {
                                                             fontChoice = values[5]
                                                             customWallpaperUri = values[6].takeIf { it.isNotBlank() }
                                                         }
                                                         prefs.edit().putString("themePreset", themePreset).putString("wallpaper", wallpaper)
-                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).putString("fontChoice", fontChoice)
+                                                            .putBoolean("dark", dark).putBoolean("monochromeIcons", monochromeIcons).putString("iconStyle", iconStyle).putString("fontChoice", fontChoice)
                                                             .apply()
                                                         prefs.edit().apply {
                                                             if (customWallpaperUri.isNullOrBlank()) remove("customWallpaperUri") else putString("customWallpaperUri", customWallpaperUri)
@@ -934,7 +940,33 @@ private fun NivoraApp() {
                             }
                             "Icone e applicazioni" -> {
                                 SettingsSection("Icone e applicazioni", "Personalizza l'aspetto e la disposizione del cassetto app.", accent) {
-                                    SettingSwitch("Icone monocromatiche Nivora", monochromeIcons) { monochromeIcons = it; prefs.edit().putBoolean("monochromeIcons", it).apply() }
+                                    SettingChoice("Stile delle icone", iconStyle, "Originali", "Nivora Flux", "Monocromatiche") {
+                                        iconStyle = it
+                                        monochromeIcons = it == "Monocromatiche"
+                                        prefs.edit().putString("iconStyle", it).putBoolean("monochromeIcons", monochromeIcons).apply()
+                                    }
+                                    Text(
+                                        when (iconStyle) {
+                                            "Nivora Flux" -> "PRISM FLUX · Vetro scuro, bordi luminosi e sfumature neon. Le app non ancora disegnate mantengono la loro icona originale."
+                                            "Monocromatiche" -> "NIVORA MONO · Simboli lineari per le app riconosciute; per tutte le altre, icona originale desaturata. Mai più iniziali casuali."
+                                            else -> "ORIGINALI · Mostra le icone ufficiali installate sul telefono, così ogni app resta riconoscibile."
+                                        },
+                                        color = muted, fontSize = 12.sp, lineHeight = 17.sp
+                                    )
+                                    if (apps.isNotEmpty()) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            apps.take(4).forEach { sample ->
+                                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                    AndroidView(
+                                                        factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
+                                                        update = { view -> view.setImageDrawable(iconForDisplay(sample, iconStyle, accent)) },
+                                                        modifier = Modifier.size(44.dp)
+                                                    )
+                                                    Text(sample.label, color = muted, fontSize = 9.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                        }
+                                    }
                                     SettingChoice("Dimensione icone", "$iconSize dp", "40 dp", "50 dp", "60 dp", "64 dp") { iconSize = it.removeSuffix(" dp").toInt().coerceIn(40, 64); prefs.edit().putInt("iconSize", iconSize).apply() }
                                     SettingChoice("Ordina applicazioni", sortBy, "Nome", "Preferiti", "Recenti") { sortBy = it; prefs.edit().putString("sortBy", it).apply() }
                                 }
@@ -1112,7 +1144,7 @@ private fun NivoraApp() {
             confirmButton = {
                 TextButton(onClick = {
                     val name = newThemeName.trim().replace("\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
-                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString(), fontChoice, customWallpaperUri.orEmpty()).joinToString("\t")
+                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString(), fontChoice, customWallpaperUri.orEmpty(), iconStyle).joinToString("\t")
                     customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) }.toSet() + record
                     prefs.edit().putStringSet("customThemes", customThemes).apply()
                     savingThemeName = false
@@ -1148,7 +1180,8 @@ private fun NivoraApp() {
                     showLogo = true
                     searchExpanded = false
                     themePreset = "Mono Glass"
-                    monochromeIcons = true
+                    monochromeIcons = false
+                    iconStyle = "Originali"
                     customWallpaperUri = null
                     customWallpaperBitmap = null
                     homeWidgetIds = emptyList()
