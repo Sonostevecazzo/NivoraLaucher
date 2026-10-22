@@ -925,7 +925,7 @@ private fun NivoraApp() {
                                             if (index >= 0) carouselScope.launch { carouselState.animateScrollToItem(index) }
                                         },
                                         label = { Text(letter.toString(), fontSize = 10.sp) },
-                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                        modifier = Modifier.height(30.dp)
                                     )
                                 }
                             }
