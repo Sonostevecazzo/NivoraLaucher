@@ -116,6 +116,22 @@ private val categoryOrder = listOf(
     "Sistema", "Utilità", "Altro"
 )
 
+/** Keeps guessed categories useful while preventing unknown apps from becoming one giant bucket. */
+private fun groupedAppsForNavigation(apps: List<LaunchableApp>): Map<String, List<LaunchableApp>> {
+    val rawGroups = apps.groupBy { categoryForApp(it) }
+    val result = linkedMapOf<String, List<LaunchableApp>>()
+    categoryOrder.filterNot { it == "Altro" }.forEach { category ->
+        rawGroups[category]?.takeIf { it.isNotEmpty() }?.let { result[category] = it }
+    }
+    val alphabeticallyGroupedOther = rawGroups["Altro"].orEmpty()
+        .groupBy { appAlphabetLetter(it.label) }
+        .toSortedMap(compareBy<Char> { if (it == '#' ) 1 else 0 }.thenBy { it })
+    alphabeticallyGroupedOther.forEach { (letter, group) ->
+        result["Altre · $letter"] = group
+    }
+    return result
+}
+
 private fun categoryForApp(app: LaunchableApp): String {
     val inferred = categoryForAppLabel(app.label, app.packageName)
     if (inferred != "Altro") return inferred
@@ -184,24 +200,27 @@ internal fun categoryForAppLabel(label: String, packageName: String): String {
     }
 }
 
-private fun categorySymbol(category: String): String = when (category) {
-    "Finanza" -> "◈"
-    "Giochi" -> "✧"
-    "Social" -> "◎"
-    "Browser" -> "◉"
-    "Musica" -> "♫"
-    "Video" -> "▷"
-    "Notizie" -> "▥"
-    "Fotografia" -> "▧"
-    "Produttività" -> "▤"
-    "Shopping" -> "◇"
-    "Viaggi" -> "⌖"
-    "Salute" -> "✚"
-    "Meteo" -> "☼"
-    "Sicurezza" -> "⬡"
-    "Sistema" -> "⚙"
-    "Utilità" -> "⌘"
-    else -> "✦"
+private fun categorySymbol(category: String): String {
+    if (category.startsWith("Altre · ")) return category.substringAfter("Altre · ").take(1)
+    return when (category) {
+        "Finanza" -> "◈"
+        "Giochi" -> "✧"
+        "Social" -> "◎"
+        "Browser" -> "◉"
+        "Musica" -> "♫"
+        "Video" -> "▷"
+        "Notizie" -> "▥"
+        "Fotografia" -> "▧"
+        "Produttività" -> "▤"
+        "Shopping" -> "◇"
+        "Viaggi" -> "⌖"
+        "Salute" -> "✚"
+        "Meteo" -> "☼"
+        "Sicurezza" -> "⬡"
+        "Sistema" -> "⚙"
+        "Utilità" -> "⌘"
+        else -> "✦"
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -692,8 +711,8 @@ private fun NivoraApp() {
                         Spacer(Modifier.weight(1f))
                         Text("${favorites.size} SALVATE", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
-                    val homeCategoryGroups = apps.groupBy { categoryForApp(it) }
-                    val homeCategories = categoryOrder.filter { !homeCategoryGroups[it].isNullOrEmpty() }
+                    val homeCategoryGroups = groupedAppsForNavigation(apps)
+                    val homeCategories = homeCategoryGroups.keys.toList()
                     if (homeCategories.isNotEmpty()) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -850,6 +869,7 @@ private fun NivoraApp() {
                     }
                 } else if (appDrawerMode == "Giostra") {
                     val carouselState = rememberLazyListState()
+                    val carouselScope = rememberCoroutineScope()
                     val carouselPackageKeys = visibleApps.map { it.packageName }
                     LaunchedEffect(carouselPackageKeys) {
                         if (carouselPackageKeys.isNotEmpty()) carouselState.scrollToItem(0)
@@ -886,6 +906,29 @@ private fun NivoraApp() {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("N I V O R A   /   COVER FLOW", color = accent, fontSize = 9.sp, letterSpacing = 1.6.sp)
                             Text(if (visibleApps.isEmpty()) "0 / 0" else "${focusedIndex + 1} / ${visibleApps.size}", color = muted, fontSize = 10.sp)
+                        }
+                        if (sortBy == "Nome" && visibleApps.size > 4) {
+                            val alphabet = remember(visibleApps) {
+                                visibleApps.map { appAlphabetLetter(it.label) }.distinct()
+                                    .sortedWith(compareBy<Char> { if (it == '#' ) 1 else 0 }.thenBy { it })
+                            }
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                items(alphabet, key = { it.toString() }) { letter ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            val index = visibleApps.indexOfFirst { appAlphabetLetter(it.label) == letter }
+                                            if (index >= 0) carouselScope.launch { carouselState.animateScrollToItem(index) }
+                                        },
+                                        label = { Text(letter.toString(), fontSize = 10.sp) },
+                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
+                                    )
+                                }
+                            }
                         }
                         Spacer(Modifier.height(10.dp))
                         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -995,8 +1038,8 @@ private fun NivoraApp() {
                         Text("SCORRI · SI ALLINEA AL CENTRO · TOCCA PER APRIRE", color = muted, fontSize = 9.sp, letterSpacing = 0.8.sp, textAlign = TextAlign.Center)
                     }
                 } else if (appDrawerMode == "Categorie") {
-                    val groupedApps = visibleApps.groupBy { categoryForApp(it) }
-                    val availableCategories = categoryOrder.filter { !groupedApps[it].isNullOrEmpty() }
+                    val groupedApps = groupedAppsForNavigation(visibleApps)
+                    val availableCategories = groupedApps.keys.toList()
                     val activeCategory = selectedDrawerCategory.takeIf { it == "Tutte" || it in availableCategories } ?: "Tutte"
                     val categoryVisibleApps = if (activeCategory == "Tutte") visibleApps else groupedApps[activeCategory].orEmpty()
                     val categoryGridState = rememberLazyGridState()
@@ -2264,7 +2307,11 @@ private fun appAlphabetLetter(label: String): Char {
     return if (first in 'A'..'Z') first else '#'
 }
 
-private fun categoryDisplayName(category: String): String = if (category == "Altro") "Altre app" else category
+private fun categoryDisplayName(category: String): String = when {
+    category.startsWith("Altre · ") -> category
+    category == "Altro" -> "Altre app"
+    else -> category
+}
 
 @Composable
 private fun AlphabetRail(
@@ -2378,40 +2425,100 @@ private fun SettingsSection(
 @Composable
 private fun ThemePresetPicker(selected: String, accent: Color, onSelect: (String) -> Unit) {
     val themes = listOf(
-        Triple("Mono Glass", Color(0xFFB8C0C8), "Monocromo"),
-        Triple("Frost", Color(0xFF9FC8D8), "Freddo e pulito"),
-        Triple("Ember", Color(0xFFD99A83), "Caldo e morbido"),
-        Triple("Moss", Color(0xFF9EAF96), "Naturale"),
-        Triple("Violet", Color(0xFFB5A5D5), "Cromatico"),
+        Triple("Mono Glass", Color(0xFFB8C0C8), "Vetro monocromatico"),
+        Triple("Frost", Color(0xFF9FC8D8), "Ghiaccio e luce"),
+        Triple("Ember", Color(0xFFD99A83), "Caldo e avvolgente"),
+        Triple("Moss", Color(0xFF9EAF96), "Verde naturale"),
+        Triple("Violet", Color(0xFFB5A5D5), "Prisma lilla"),
         Triple("Obsidian", Color(0xFF9DA3AB), "Nero profondo"),
-        Triple("Sage", Color(0xFF9DBCA4), "Verde salvia"),
-        Triple("Bronze", Color(0xFFD6A06B), "Bronzo caldo"),
-        Triple("Pearl", Color(0xFFD8D2C7), "Perla morbida"),
-        Triple("Midnight", Color(0xFF8CA8E8), "Notte blu")
+        Triple("Sage", Color(0xFF9DBCA4), "Salvia soft"),
+        Triple("Bronze", Color(0xFFD6A06B), "Metallo caldo"),
+        Triple("Pearl", Color(0xFFD8D2C7), "Perla satinata"),
+        Triple("Midnight", Color(0xFF8CA8E8), "Notte elettrica")
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        themes.chunked(3).forEach { rowThemes ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("ANTEPRIME LIVE", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
+            fontSize = 10.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
+        themes.chunked(2).forEach { rowThemes ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 rowThemes.forEach { (name, color, subtitle) ->
                     val isSelected = selected == name
+                    val previewBase = when (name) {
+                        "Frost" -> Color(0xFF10232B)
+                        "Ember" -> Color(0xFF2D1718)
+                        "Moss" -> Color(0xFF14221B)
+                        "Violet" -> Color(0xFF211735)
+                        "Obsidian" -> Color(0xFF080A0D)
+                        "Sage" -> Color(0xFF17251F)
+                        "Bronze" -> Color(0xFF281B15)
+                        "Pearl" -> Color(0xFF28282A)
+                        "Midnight" -> Color(0xFF0B1530)
+                        else -> Color(0xFF15181C)
+                    }
                     Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(15.dp))
-                            .background(if (isSelected) accent.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.35f))
-                            .border(1.dp, if (isSelected) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(15.dp))
-                            .clickable { onSelect(name) }.padding(horizontal = 10.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                        Modifier.weight(1f).clip(RoundedCornerShape(19.dp))
+                            .background(if (isSelected) color.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.26f))
+                            .border(1.dp, if (isSelected) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.13f), RoundedCornerShape(19.dp))
+                            .clickable { onSelect(name) }.padding(7.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Box(Modifier.size(12.dp).clip(CircleShape).background(color))
-                            if (isSelected) Text("✓", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Box(
+                            Modifier.fillMaxWidth().height(104.dp).clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(listOf(previewBase, color.copy(alpha = 0.42f), previewBase)))
+                                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(14.dp))
+                        ) {
+                            Column(Modifier.fillMaxSize().padding(9.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.size(4.dp).clip(CircleShape).background(color))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("N I V O R A", color = Color.White.copy(alpha = 0.78f),
+                                        fontSize = 5.sp, letterSpacing = 1.1.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.weight(1f))
+                                    Box(Modifier.size(12.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)),
+                                        contentAlignment = Alignment.Center) {
+                                        Text("⋯", color = Color.White, fontSize = 7.sp, lineHeight = 7.sp)
+                                    }
+                                }
+                                Spacer(Modifier.height(7.dp))
+                                Text("09:41", color = Color.White, fontSize = 20.sp,
+                                    fontWeight = FontWeight.Light, letterSpacing = (-0.7).sp, lineHeight = 22.sp)
+                                Text("GIOVEDÌ  ·  22 OTTOBRE", color = Color.White.copy(alpha = 0.65f),
+                                    fontSize = 5.sp, letterSpacing = 0.65.sp)
+                                Spacer(Modifier.weight(1f))
+                                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    listOf("◈", "◎", "♫", "✦").forEachIndexed { index, glyph ->
+                                        Box(
+                                            Modifier.weight(1f).height(22.dp).clip(RoundedCornerShape(6.dp))
+                                                .background(Color.White.copy(alpha = if (index == 0) 0.16f else 0.08f))
+                                                .border(0.6.dp, color.copy(alpha = 0.68f), RoundedCornerShape(6.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) { Text(glyph, color = color, fontSize = 10.sp, fontWeight = FontWeight.Medium) }
+                                    }
+                                }
+                            }
+                            if (isSelected) {
+                                Box(Modifier.align(Alignment.TopEnd).padding(5.dp).size(20.dp)
+                                    .clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+                                    Text("✓", color = previewBase, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
-                        Text(name, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text(subtitle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f), fontSize = 9.sp, maxLines = 1)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(name, color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(subtitle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                    fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                        }
                     }
                 }
-                repeat(3 - rowThemes.size) { Spacer(Modifier.weight(1f)) }
+                repeat(2 - rowThemes.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+        Text("Tocca una card per applicare subito il tema. Le anteprime rappresentano lo stile cromatico e il vetro di Nivora.",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f), fontSize = 11.sp, lineHeight = 15.sp)
     }
 }
 
