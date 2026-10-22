@@ -134,9 +134,11 @@ private fun NivoraApp() {
     }
     var iconStyle by remember {
         mutableStateOf((prefs.getString("iconStyle", "Nivora Flux") ?: "Nivora Flux")
-            .let { if (it in setOf("Originali", "Nivora Flux", "Monocromatiche")) it else "Originali" })
+            .let { if (it in setOf("Originali", "Nivora Flux", "Monocromatiche", "Pacchetto esterno")) it else "Nivora Flux" })
     }
     var monochromeIcons by remember { mutableStateOf(iconStyle == "Monocromatiche") }
+    var iconPackPackage by remember { mutableStateOf(prefs.getString("iconPackPackage", "") ?: "") }
+    var installedIconPacks by remember(context) { mutableStateOf(IconPackSupport.discover(context)) }
     var customWallpaperUri by remember { mutableStateOf(prefs.getString("customWallpaperUri", null)) }
     var customWallpaperBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var showArcade by remember { mutableStateOf(false) }
@@ -268,7 +270,7 @@ private fun NivoraApp() {
                             require(value is Number) { "Tipo non valido per la preferenza $key." }
                             editor.putInt(key, value.toInt())
                         }
-                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy", "iconStyle" -> {
+                        "fontChoice", "wallpaper", "themePreset", "recentApps", "sortBy", "iconStyle", "iconPackPackage" -> {
                             val value = saved.opt(key)
                             require(value is String) { "Tipo non valido per la preferenza $key." }
                             editor.putString(key, value)
@@ -655,7 +657,7 @@ private fun NivoraApp() {
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent,
+                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent, iconPackPackage,
                                 onClick = {
                                     launchApp(context, app) { packageName ->
                                         recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
@@ -671,7 +673,7 @@ private fun NivoraApp() {
                 } else {
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted, iconStyle, accent,
+                            AppListRow(app, favorites.contains(app.packageName), fg, muted, iconStyle, accent, iconPackPackage,
                                 onClick = { launchApp(context, app) { packageName ->
                                     recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
                                     prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
@@ -810,8 +812,9 @@ private fun NivoraApp() {
                                                         wallpaper = values[2]
                                                         dark = values[3].toBoolean()
                                                         monochromeIcons = values[4].toBoolean()
-                                                        iconStyle = values.getOrNull(7)?.takeIf { it in setOf("Originali", "Nivora Flux", "Monocromatiche") }
-                                                            ?: if (monochromeIcons) "Monocromatiche" else "Originali"
+                                                        iconStyle = values.getOrNull(7)?.takeIf { it in setOf("Originali", "Nivora Flux", "Monocromatiche", "Pacchetto esterno") }
+                                                            ?: if (monochromeIcons) "Monocromatiche" else "Nivora Flux"
+                                                        iconPackPackage = values.getOrNull(8).orEmpty()
                                                         if (values.size >= 7) {
                                                             fontChoice = values[5]
                                                             customWallpaperUri = values[6].takeIf { it.isNotBlank() }
@@ -940,7 +943,7 @@ private fun NivoraApp() {
                             }
                             "Icone e applicazioni" -> {
                                 SettingsSection("Icone e applicazioni", "Scegli il look delle icone: ufficiali, Prism Flux al neon oppure monocromatiche.", accent) {
-                                    SettingChoice("Stile delle icone", iconStyle, "Originali", "Nivora Flux", "Monocromatiche") {
+                                    SettingChoice("Stile delle icone", iconStyle, "Originali", "Nivora Flux", "Monocromatiche", "Pacchetto esterno") {
                                         iconStyle = it
                                         monochromeIcons = it == "Monocromatiche"
                                         prefs.edit().putString("iconStyle", it).putBoolean("monochromeIcons", monochromeIcons).apply()
@@ -949,18 +952,46 @@ private fun NivoraApp() {
                                         when (iconStyle) {
                                             "Nivora Flux" -> "PRISM FLUX · Vetro scuro, bordi luminosi e sfumature neon. Le app non ancora disegnate mantengono la loro icona originale."
                                             "Monocromatiche" -> "NIVORA MONO · Simboli lineari per le app riconosciute; per tutte le altre, icona originale desaturata. Mai più iniziali casuali."
+                                            "Pacchetto esterno" -> "PACK COMPATIBILE · Carica in locale le icone dal pack installato, leggendo appfilter.xml. Nessun download di icone o account richiesto."
                                             else -> "ORIGINALI · Mostra le icone ufficiali installate sul telefono, così ogni app resta riconoscibile."
                                         },
                                         color = muted, fontSize = 12.sp, lineHeight = 17.sp
                                     )
-                                    if (apps.isNotEmpty()) {
+                                    if (iconStyle == "Pacchetto esterno") {
+                                        SettingChoice(
+                                            "Pacchetto compatibile",
+                                            installedIconPacks.firstOrNull { it.packageName == iconPackPackage }?.label ?: "Nessuno selezionato",
+                                            *(installedIconPacks.map { it.label }.ifEmpty { listOf("Nessun pack rilevato") }.toTypedArray())
+                                        ) { label ->
+                                            installedIconPacks.firstOrNull { it.label == label }?.let { pack ->
+                                                iconPackPackage = pack.packageName
+                                                prefs.edit().putString("iconPackPackage", pack.packageName).apply()
+                                            }
+                                        }
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(onClick = {
+                                                installedIconPacks = IconPackSupport.discover(context)
+                                                Toast.makeText(context, if (installedIconPacks.isEmpty()) "Nessun icon pack compatibile installato" else "Trovati ${installedIconPacks.size} icon pack compatibili", Toast.LENGTH_SHORT).show()
+                                            }, modifier = Modifier.weight(1f)) { Text("RICERCA PACK") }
+                                            OutlinedButton(onClick = {
+                                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/dev.appstract.iconpack/"))) }
+                                                    .onFailure { Toast.makeText(context, "Impossibile aprire F-Droid", Toast.LENGTH_SHORT).show() }
+                                            }, modifier = Modifier.weight(1f)) { Text("APPSTRACT · F-DROID") }
+                                        }
+                                    }
+                                    val iconPreviewApps = when (iconStyle) {
+                                        "Nivora Flux", "Monocromatiche" -> apps.filter { NivoraIconDrawable.hasDesignedGlyph(it.label, it.packageName) }.take(4)
+                                        "Pacchetto esterno" -> apps.filter { IconPackSupport.loadIcon(context, iconPackPackage, it.packageName) != null }.take(4)
+                                        else -> apps.take(4)
+                                    }.ifEmpty { apps.take(4) }
+                                    if (iconPreviewApps.isNotEmpty()) {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            apps.take(4).forEach { sample ->
+                                            iconPreviewApps.forEach { sample ->
                                                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                                     AndroidView(
                                                         factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                                                        update = { view -> view.setImageDrawable(iconForDisplay(sample, iconStyle, accent)) },
-                                                        modifier = Modifier.size(44.dp)
+                                                        update = { view -> view.setImageDrawable(iconForDisplay(view.context, sample, iconStyle, accent, iconPackPackage)) },
+                                                        modifier = Modifier.size(48.dp)
                                                     )
                                                     Text(sample.label, color = muted, fontSize = 9.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                                 }
@@ -1144,7 +1175,7 @@ private fun NivoraApp() {
             confirmButton = {
                 TextButton(onClick = {
                     val name = newThemeName.trim().replace("\t", " ").ifBlank { "Tema ${customThemes.size + 1}" }
-                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString(), fontChoice, customWallpaperUri.orEmpty(), iconStyle).joinToString("\t")
+                    val record = listOf(name, themePreset, wallpaper, dark.toString(), monochromeIcons.toString(), fontChoice, customWallpaperUri.orEmpty(), iconStyle, iconPackPackage).joinToString("\t")
                     customThemes = customThemes.filterNot { it.substringBefore('\t').equals(name, ignoreCase = true) }.toSet() + record
                     prefs.edit().putStringSet("customThemes", customThemes).apply()
                     savingThemeName = false
@@ -1182,6 +1213,7 @@ private fun NivoraApp() {
                     themePreset = "Mono Glass"
                     monochromeIcons = false
                     iconStyle = "Nivora Flux"
+                    iconPackPackage = ""
                     customWallpaperUri = null
                     customWallpaperBitmap = null
                     homeWidgetIds = emptyList()
@@ -1758,26 +1790,33 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
  * Three icon treatments. Unknown apps always keep the real package icon;
  * Nivora never substitutes a random initial for a missing design.
  */
-private fun iconForDisplay(app: LaunchableApp, style: String, accent: Color): Drawable {
+private fun iconForDisplay(context: android.content.Context, app: LaunchableApp, style: String, accent: Color, iconPackPackage: String): Drawable {
     fun original(): Drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+    val hasDesignedGlyph = NivoraIconDrawable.hasDesignedGlyph(app.label, app.packageName)
     return when (style) {
-        // Flux is a full icon language, not a decorative frame around the vendor logo.
-        // Every installed app receives a coherent Nivora glyph, including abstract fallback variants.
-        "Nivora Flux" -> NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux")
-        "Monocromatiche" -> NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
+        "Pacchetto esterno" -> IconPackSupport.loadIcon(context, iconPackPackage, app.packageName) ?: original()
+        "Nivora Flux" -> if (hasDesignedGlyph) NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Nivora Flux") else original()
+        "Monocromatiche" -> if (hasDesignedGlyph) {
+            NivoraIconDrawable(app.label, app.packageName, accent.toArgb(), "Monocromatiche")
+        } else {
+            original().apply {
+                val matrix = android.graphics.ColorMatrix().apply { setSaturation(0f) }
+                colorFilter = android.graphics.ColorMatrixColorFilter(matrix)
+            }
+        }
         else -> original()
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconStyle: String, iconAccent: Color,
+private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, fg: Color, compact: Boolean, iconSize: Int, fontChoice: String, iconStyle: String, iconAccent: Color, iconPackPackage: String,
                     onClick: () -> Unit, onLongClick: () -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = if (compact) 1.dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.TopEnd) {
             AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                update = { view -> view.setImageDrawable(iconForDisplay(app, iconStyle, iconAccent)); view.clearColorFilter() },
+                update = { view -> view.setImageDrawable(iconForDisplay(view.context, app, iconStyle, iconAccent, iconPackPackage)); view.clearColorFilter() },
                 modifier = Modifier.size(if (compact) iconSize.coerceAtMost(46).dp else iconSize.dp))
             if (favorite) Box(Modifier.padding(top = 1.dp, end = 1.dp).size(6.dp).clip(CircleShape).background(Color(0xFFD71920)))
         }
@@ -1791,11 +1830,11 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, iconStyle: String, iconAccent: Color, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AppListRow(app: LaunchableApp, favorite: Boolean, fg: Color, muted: Color, iconStyle: String, iconAccent: Color, iconPackPackage: String, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically) {
         AndroidView(factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-            update = { view -> view.setImageDrawable(iconForDisplay(app, iconStyle, iconAccent)); view.clearColorFilter() },
+            update = { view -> view.setImageDrawable(iconForDisplay(view.context, app, iconStyle, iconAccent, iconPackPackage)); view.clearColorFilter() },
             modifier = Modifier.size(36.dp))
         Spacer(Modifier.width(15.dp))
         Column(Modifier.weight(1f)) {
