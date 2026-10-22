@@ -547,12 +547,6 @@ internal class NivoraIconDrawable(
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
     companion object {
-        internal fun hasDesignedGlyph(label: String, packageName: String): Boolean =
-            identify(label.trim().lowercase(Locale.ROOT), packageName.lowercase(Locale.ROOT)) != Glyph.GENERIC
-
-        internal fun fluxColorsFor(label: String, packageName: String): IntArray =
-            fluxPalette("$label $packageName")
-
         private fun fluxPalette(seed: String): IntArray {
             val palettes = arrayOf(
                 intArrayOf(Color.rgb(10, 37, 62), Color.rgb(20, 103, 143), Color.rgb(49, 228, 219)),
@@ -632,97 +626,4 @@ internal class NivoraIconDrawable(
             }
         }
     }
-}
-
-
-/**
- * Gives an unmapped official application icon a Nivora Flux glass frame.
- * The original app artwork is retained inside a clipped inset, never replaced by a letter.
- */
-internal class NivoraFluxFrameDrawable(
-    private val content: Drawable,
-    label: String,
-    packageName: String
-) : Drawable() {
-    private val palette = NivoraIconDrawable.fluxColorsFor(label, packageName)
-    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        shader = LinearGradient(
-            4f, 4f, 96f, 96f,
-            intArrayOf(palette[0], palette[1], palette[2]),
-            floatArrayOf(0f, 0.56f, 1f), Shader.TileMode.CLAMP
-        )
-    }
-    private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-        shader = LinearGradient(
-            5f, 5f, 95f, 95f,
-            intArrayOf(palette[2], Color.WHITE, palette[1]),
-            floatArrayOf(0f, 0.50f, 1f), Shader.TileMode.CLAMP
-        )
-    }
-    private val innerEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 1.2f
-        color = Color.WHITE
-        alpha = 84
-    }
-    private val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 1.4f
-        color = Color.WHITE
-        alpha = 75
-    }
-    private var drawableAlpha = 255
-
-    override fun draw(canvas: Canvas) {
-        val b = bounds
-        if (b.width() <= 0 || b.height() <= 0) return
-        val save = canvas.save()
-        canvas.translate(b.left.toFloat(), b.top.toFloat())
-        canvas.scale(b.width() / 100f, b.height() / 100f)
-        val tile = RectF(3f, 3f, 97f, 97f)
-        backgroundPaint.alpha = drawableAlpha
-        edgePaint.alpha = (drawableAlpha * 0.94f).toInt()
-        canvas.drawRoundRect(tile, 29f, 29f, backgroundPaint)
-        canvas.drawRoundRect(tile, 29f, 29f, edgePaint)
-
-        val inner = RectF(12f, 12f, 88f, 88f)
-        val clip = Path().apply { addRoundRect(inner, 20f, 20f, Path.Direction.CW) }
-        val innerSave = canvas.save()
-        canvas.clipPath(clip)
-        val oldBounds = Rect(content.bounds)
-        content.alpha = drawableAlpha
-        content.bounds = android.graphics.Rect(12, 12, 88, 88)
-        content.draw(canvas)
-        content.bounds = oldBounds
-        canvas.restoreToCount(innerSave)
-        canvas.drawRoundRect(inner, 20f, 20f, innerEdgePaint.apply { alpha = (drawableAlpha * 0.34f).toInt() })
-
-        val gleam = Path().apply {
-            moveTo(17f, 24f)
-            cubicTo(26f, 11f, 48f, 10f, 63f, 14f)
-        }
-        sheenPaint.alpha = (drawableAlpha * 0.58f).toInt()
-        canvas.drawPath(gleam, sheenPaint)
-        canvas.restoreToCount(save)
-    }
-
-    override fun setAlpha(alpha: Int) {
-        drawableAlpha = alpha.coerceIn(0, 255)
-        content.alpha = drawableAlpha
-        invalidateSelf()
-    }
-
-    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
-        content.colorFilter = colorFilter
-        backgroundPaint.colorFilter = colorFilter
-        edgePaint.colorFilter = colorFilter
-        innerEdgePaint.colorFilter = colorFilter
-        sheenPaint.colorFilter = colorFilter
-        invalidateSelf()
-    }
-
-    @Deprecated("Deprecated in Android API; opacity is retained for compatibility")
-    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }
