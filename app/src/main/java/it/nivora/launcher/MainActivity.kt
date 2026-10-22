@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -728,45 +729,125 @@ private fun NivoraApp() {
                 } else if (appDrawerMode == "Giostra") {
                     val carouselState = rememberLazyListState()
                     val carouselLayout by remember { derivedStateOf { carouselState.layoutInfo } }
+                    val snapBehavior = rememberSnapFlingBehavior(lazyListState = carouselState)
+                    val focusedPackage by remember {
+                        derivedStateOf {
+                            val layout = carouselState.layoutInfo
+                            val center = (layout.viewportStartOffset + layout.viewportEndOffset) / 2f
+                            layout.visibleItemsInfo.minByOrNull { info ->
+                                kotlin.math.abs(info.offset + info.size / 2f - center)
+                            }?.key as? String
+                        }
+                    }
+                    val focusedIndex = visibleApps.indexOfFirst { it.packageName == focusedPackage }.coerceAtLeast(0)
+                    val focusedApp = visibleApps.getOrNull(focusedIndex)
+                    val progress = if (visibleApps.size <= 1) 1f else focusedIndex.toFloat() / (visibleApps.size - 1).toFloat()
                     Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Text("N I V O R A   /   3D CAROUSEL", color = accent, fontSize = 9.sp, letterSpacing = 2.sp)
-                        Spacer(Modifier.height(12.dp))
-                        LazyRow(state = carouselState, modifier = Modifier.fillMaxWidth().height(250.dp),
-                            contentPadding = PaddingValues(horizontal = 104.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            items(visibleApps, key = { it.packageName }) { app ->
-                                val info = carouselLayout.visibleItemsInfo.firstOrNull { it.key == app.packageName }
-                                val viewportCenter = (carouselLayout.viewportStartOffset + carouselLayout.viewportEndOffset) / 2f
-                                val itemCenter = info?.let { it.offset + it.size / 2f } ?: viewportCenter
-                                val depth = ((itemCenter - viewportCenter) / (viewportCenter.coerceAtLeast(1f))).coerceIn(-1f, 1f)
-                                val distance = kotlin.math.abs(depth)
-                                Box(Modifier.width(126.dp).graphicsLayer {
-                                    rotationY = -depth * 54f
-                                    scaleX = 1f - distance * 0.24f
-                                    scaleY = 1f - distance * 0.18f
-                                    alpha = 1f - distance * 0.24f
-                                    cameraDistance = 22f * density
-                                    shadowElevation = (1f - distance) * 18.dp.toPx()
-                                }.clip(RoundedCornerShape(24.dp))
-                                    .background(Brush.verticalGradient(listOf(panel.copy(alpha = 0.92f), panel.copy(alpha = 0.48f))))
-                                    .border(1.dp, accent.copy(alpha = 0.18f + (1f - distance) * 0.35f), RoundedCornerShape(24.dp))
-                                    .padding(horizontal = 8.dp, vertical = 18.dp)) {
-                                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        AppTile(app, favorites.contains(app.packageName), true, fg, true, iconSize.coerceIn(48, 62), fontChoice, iconStyle, accent, iconPackPackage,
-                                            onClick = { launchApp(context, app) { packageName ->
-                                                recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                                prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
-                                            } },
-                                            onLongClick = {
-                                                favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                                Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                            })
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("N I V O R A   /   COVER FLOW", color = accent, fontSize = 9.sp, letterSpacing = 1.6.sp)
+                            Text(if (visibleApps.isEmpty()) "0 / 0" else "${focusedIndex + 1} / ${visibleApps.size}", color = muted, fontSize = 10.sp)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val cardWidth = (maxWidth * 0.37f).coerceIn(118.dp, 142.dp)
+                            val sidePadding = ((maxWidth - cardWidth) / 2f).coerceAtLeast(0.dp)
+                            val cardHeight = 258.dp
+                            LazyRow(
+                                state = carouselState,
+                                flingBehavior = snapBehavior,
+                                modifier = Modifier.fillMaxWidth().height(cardHeight)
+                                    .drawBehind {
+                                        val center = Offset(size.width / 2f, size.height / 2f)
+                                        val radius = size.width * 0.42f
+                                        drawCircle(
+                                            brush = Brush.radialGradient(
+                                                colors = listOf(accent.copy(alpha = 0.18f), Color.Transparent),
+                                                center = center,
+                                                radius = radius
+                                            ),
+                                            radius = radius,
+                                            center = center
+                                        )
+                                    },
+                                contentPadding = PaddingValues(horizontal = sidePadding, vertical = 18.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                items(visibleApps, key = { it.packageName }) { app ->
+                                    val info = carouselLayout.visibleItemsInfo.firstOrNull { it.key == app.packageName }
+                                    val viewportCenter = (carouselLayout.viewportStartOffset + carouselLayout.viewportEndOffset) / 2f
+                                    val itemCenter = info?.let { it.offset + it.size / 2f } ?: viewportCenter
+                                    val itemSize = (info?.size ?: 1).coerceAtLeast(1).toFloat()
+                                    val relativeOffset = ((itemCenter - viewportCenter) / itemSize).coerceIn(-2.2f, 2.2f)
+                                    val distance = kotlin.math.abs(relativeOffset).coerceIn(0f, 2f)
+                                    val side = (distance / 2f).coerceIn(0f, 1f)
+                                    val isFocused = distance < 0.12f
+                                    Box(
+                                        Modifier.width(cardWidth)
+                                            .graphicsLayer {
+                                                rotationY = -relativeOffset * 28f
+                                                rotationX = if (isFocused) 0f else 2.5f
+                                                scaleX = 1f - side * 0.16f
+                                                scaleY = 1f - side * 0.12f
+                                                alpha = 1f - side * 0.26f
+                                                cameraDistance = 22f * density
+                                                shape = RoundedCornerShape(24.dp)
+                                                clip = true
+                                                shadowElevation = (1f - side) * 22.dp.toPx()
+                                            }
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(
+                                                        panel.copy(alpha = if (isFocused) 0.98f else 0.80f),
+                                                        panel.copy(alpha = if (isFocused) 0.76f else 0.42f)
+                                                    )
+                                                )
+                                            )
+                                            .border(
+                                                width = if (isFocused) 1.5.dp else 1.dp,
+                                                color = accent.copy(alpha = if (isFocused) 0.80f else 0.18f + (1f - side) * 0.18f),
+                                                shape = RoundedCornerShape(24.dp)
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 18.dp)
+                                    ) {
+                                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            if (isFocused) {
+                                                Text("IN PRIMO PIANO", color = accent, fontSize = 8.sp, letterSpacing = 1.3.sp)
+                                                Spacer(Modifier.height(6.dp))
+                                            } else {
+                                                Spacer(Modifier.height(14.dp))
+                                            }
+                                            AppTile(
+                                                app, favorites.contains(app.packageName), true, fg, true,
+                                                iconSize.coerceIn(48, 62), fontChoice, iconStyle, accent, iconPackPackage,
+                                                onClick = { launchApp(context, app) { packageName ->
+                                                    recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                                    prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                                } },
+                                                onLongClick = {
+                                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            if (isFocused) Box(Modifier.width(44.dp).height(2.dp).clip(CircleShape).background(accent))
+                                        }
                                     }
                                 }
                             }
                         }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            focusedApp?.label ?: "Scorri per esplorare le app",
+                            color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(7.dp))
+                        Box(Modifier.width(108.dp).height(2.dp).clip(CircleShape).background(muted.copy(alpha = 0.22f))) {
+                            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(accent))
+                        }
                         Spacer(Modifier.height(12.dp))
-                        Text("SCORRI LATERALMENTE  ·  TOCCA PER APRIRE", color = muted, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                        Text("SCORRI · SI ALLINEA AL CENTRO · TOCCA PER APRIRE", color = muted, fontSize = 9.sp, letterSpacing = 0.8.sp, textAlign = TextAlign.Center)
                     }
                 } else {
                     val groupedApps = visibleApps.groupBy { categoryForApp(it) }
