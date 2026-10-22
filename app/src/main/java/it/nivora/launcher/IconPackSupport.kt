@@ -34,20 +34,20 @@ internal object IconPackSupport {
     fun discover(context: Context): List<InstalledIconPack> {
         val pm = context.packageManager
         val found = linkedMapOf<String, InstalledIconPack>()
-        actionNames.forEach { action ->
+        actionNames.forEach actionLoop@{ action ->
             val intent = Intent(action)
             val resolved = runCatching {
                 @Suppress("DEPRECATION")
                 pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
             }.getOrDefault(emptyList())
-            resolved.forEach { info ->
-                val activity = info.activityInfo ?: return@forEach
+            resolved.forEach resolvedLoop@{ info ->
+                val activity = info.activityInfo ?: return@resolvedLoop
                 val packageName = activity.packageName
-                if (packageName == context.packageName || found.containsKey(packageName)) return@forEach
+                if (packageName == context.packageName || found.containsKey(packageName)) return@resolvedLoop
                 val appInfo = activity.applicationInfo
                 val label = runCatching { pm.getApplicationLabel(appInfo).toString() }
                     .getOrDefault(packageName)
-                val icon = runCatching { pm.getApplicationIcon(appInfo) }.getOrNull() ?: return@forEach
+                val icon = runCatching { pm.getApplicationIcon(appInfo) }.getOrNull() ?: return@resolvedLoop
                 found[packageName] = InstalledIconPack(packageName, label, icon)
             }
         }
