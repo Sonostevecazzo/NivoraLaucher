@@ -1791,7 +1791,11 @@ private fun toggleFavorite(current: Set<String>, packageName: String, prefs: and
  * Nivora never substitutes a random initial for a missing design.
  */
 private fun iconForDisplay(context: android.content.Context, app: LaunchableApp, style: String, accent: Color, iconPackPackage: String): Drawable {
-    fun original(): Drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+    fun original(): Drawable {
+        val drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+        drawable.setColorFilter(null)
+        return drawable
+    }
     val hasDesignedGlyph = NivoraIconDrawable.hasDesignedGlyph(app.label, app.packageName)
     return when (style) {
         "Pacchetto esterno" -> IconPackSupport.loadIcon(context, iconPackPackage, app.packageName) ?: original()
