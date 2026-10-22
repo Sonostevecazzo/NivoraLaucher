@@ -6,6 +6,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.LinearGradient
 import android.graphics.drawable.Drawable
 import java.util.Locale
 import kotlin.math.min
@@ -20,7 +22,8 @@ import kotlin.math.min
 internal class NivoraIconDrawable(
     label: String,
     packageName: String,
-    private val glyphColor: Int
+    private val glyphColor: Int,
+    private val style: String = "Monocromatiche"
 ) : Drawable() {
     private enum class Glyph {
         SHOPPING, TV, ANDROID, ANIMAL, MUSIC, FOLDER, SHIELD, MAIL, AUTH, CAR,
@@ -30,17 +33,26 @@ internal class NivoraIconDrawable(
     }
 
     private val appLabel = label.trim()
-    private val glyph = identify(appLabel.lowercase(Locale.ROOT), packageName.lowercase(Locale.ROOT))
+    private val appPackage = packageName.lowercase(Locale.ROOT)
+    private val glyph = identify(appLabel.lowercase(Locale.ROOT), appPackage)
+    private val fluxColors = fluxPalette("$appLabel $packageName")
+    private val isFlux = style == "Nivora Flux"
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(31, 35, 39) }
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(62, 69, 75)
         style = Paint.Style.STROKE
-        strokeWidth = 1.8f
+        strokeWidth = if (isFlux) 2.1f else 1.8f
+    }
+    private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        alpha = 62
+        style = Paint.Style.STROKE
+        strokeWidth = 1.2f
     }
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = glyphColor
+        color = if (isFlux) Color.WHITE else glyphColor
         style = Paint.Style.STROKE
-        strokeWidth = 6f
+        strokeWidth = if (isFlux) 5.4f else 6f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
@@ -57,8 +69,46 @@ internal class NivoraIconDrawable(
         backgroundPaint.alpha = drawableAlpha
         edgePaint.alpha = drawableAlpha
         ink.alpha = drawableAlpha
+        highlightPaint.alpha = if (isFlux) (drawableAlpha * 0.34f).toInt() else 0
+        if (isFlux) {
+            backgroundPaint.shader = LinearGradient(
+                7f, 5f, 94f, 96f,
+                intArrayOf(fluxColors[0], fluxColors[1], fluxColors[2]),
+                floatArrayOf(0f, 0.56f, 1f), Shader.TileMode.CLAMP
+            )
+            edgePaint.shader = LinearGradient(
+                5f, 5f, 95f, 95f,
+                intArrayOf(fluxColors[2], Color.WHITE, fluxColors[1]),
+                floatArrayOf(0f, 0.50f, 1f), Shader.TileMode.CLAMP
+            )
+            ink.color = Color.WHITE
+            ink.setShadowLayer(5.5f, 0f, 0f, fluxColors[2])
+        } else {
+            backgroundPaint.shader = null
+            edgePaint.shader = null
+            backgroundPaint.color = Color.rgb(31, 35, 39)
+            edgePaint.color = Color.rgb(62, 69, 75)
+            ink.color = glyphColor
+            ink.clearShadowLayer()
+        }
+        if (isFlux) {
+            val halo = RectF(3f, 3f, 97f, 97f)
+            val oldAlpha = backgroundPaint.alpha
+            backgroundPaint.alpha = (drawableAlpha * 0.26f).toInt()
+            canvas.drawRoundRect(halo, 30f, 30f, backgroundPaint)
+            backgroundPaint.alpha = oldAlpha
+        }
         canvas.drawRoundRect(tile, 27f, 27f, backgroundPaint)
         canvas.drawRoundRect(tile, 27f, 27f, edgePaint)
+        if (isFlux) {
+            val glass = RectF(10f, 10f, 90f, 90f)
+            canvas.drawRoundRect(glass, 22f, 22f, highlightPaint)
+            val gleam = Path().apply {
+                moveTo(17f, 27f)
+                cubicTo(29f, 12f, 46f, 12f, 61f, 15f)
+            }
+            canvas.drawPath(gleam, highlightPaint)
+        }
 
         when (glyph) {
             Glyph.CLOUD -> {
@@ -246,13 +296,16 @@ internal class NivoraIconDrawable(
                 for (x in listOf(31f, 44f, 56f, 69f)) { line(canvas, x, 44f, x, 72f) }
             }
             Glyph.GENERIC -> {
-                val initial = appLabel.firstOrNull()?.uppercaseChar()?.toString() ?: "•"
-                val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = glyphColor; alpha = drawableAlpha; textAlign = Paint.Align.CENTER
-                    typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-                    textSize = if (initial.length > 1) 31f else 43f
+                // Never substitute an arbitrary initial: use an abstract prism mark if this
+                // drawable is used directly; iconForDisplay normally keeps the real app icon.
+                val prism = Path().apply {
+                    moveTo(50f, 20f); lineTo(77f, 36f); lineTo(72f, 65f)
+                    lineTo(50f, 80f); lineTo(28f, 65f); lineTo(23f, 36f); close()
                 }
-                canvas.drawText(initial, 50f, 65f, p)
+                canvas.drawPath(prism, ink)
+                line(canvas, 50f, 20f, 50f, 80f)
+                line(canvas, 23f, 36f, 72f, 65f)
+                line(canvas, 77f, 36f, 28f, 65f)
             }
         }
         canvas.restoreToCount(save)
@@ -286,6 +339,22 @@ internal class NivoraIconDrawable(
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
     companion object {
+        internal fun hasDesignedGlyph(label: String, packageName: String): Boolean =
+            identify(label.trim().lowercase(Locale.ROOT), packageName.lowercase(Locale.ROOT)) != Glyph.GENERIC
+
+        private fun fluxPalette(seed: String): IntArray {
+            val palettes = arrayOf(
+                intArrayOf(Color.rgb(10, 37, 62), Color.rgb(20, 103, 143), Color.rgb(49, 228, 219)),
+                intArrayOf(Color.rgb(34, 22, 73), Color.rgb(91, 47, 158), Color.rgb(241, 105, 190)),
+                intArrayOf(Color.rgb(48, 29, 38), Color.rgb(180, 73, 64), Color.rgb(248, 180, 103)),
+                intArrayOf(Color.rgb(12, 47, 43), Color.rgb(22, 125, 112), Color.rgb(166, 235, 160)),
+                intArrayOf(Color.rgb(13, 28, 64), Color.rgb(40, 78, 164), Color.rgb(111, 201, 248)),
+                intArrayOf(Color.rgb(47, 36, 23), Color.rgb(157, 102, 43), Color.rgb(242, 211, 139))
+            )
+            val index = (seed.lowercase(Locale.ROOT).hashCode() and Int.MAX_VALUE) % palettes.size
+            return palettes[index]
+        }
+
         private fun identify(label: String, pkg: String): Glyph {
             val s = "$label $pkg"
             fun has(vararg terms: String) = terms.any { s.contains(it) }
