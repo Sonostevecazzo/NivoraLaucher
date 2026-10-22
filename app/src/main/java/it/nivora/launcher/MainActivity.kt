@@ -31,6 +31,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -146,6 +147,7 @@ private fun NivoraApp() {
     var favoritesOnly by remember { mutableStateOf(true) }
     var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
     var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
+    var appDrawerMode by remember { mutableStateOf((prefs.getString("appDrawerMode", "Griglia") ?: "Griglia").let { if (it in setOf("Griglia", "Giostra", "Categorie")) it else "Griglia" }) }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
@@ -585,8 +587,12 @@ private fun NivoraApp() {
                     Row(Modifier.padding(top = 20.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("APPLICAZIONI", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { grid = !grid; prefs.edit().putBoolean("grid", grid).apply() }) {
-                            Icon(if (grid) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, contentDescription = "Cambia disposizione", tint = fg)
+                        IconButton(onClick = {
+                            appDrawerMode = when (appDrawerMode) { "Griglia" -> "Giostra"; "Giostra" -> "Categorie"; else -> "Griglia" }
+                            grid = appDrawerMode == "Griglia"
+                            prefs.edit().putString("appDrawerMode", appDrawerMode).putBoolean("grid", grid).apply()
+                        }) {
+                            Icon(if (appDrawerMode == "Griglia") Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView, contentDescription = "Cambia vista: $appDrawerMode", tint = fg)
                         }
                     }
                 }
