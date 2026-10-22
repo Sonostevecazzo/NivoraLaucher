@@ -108,8 +108,10 @@ private fun categoryForApp(app: LaunchableApp): String = categoryForAppLabel(app
 
 /** Pure classifier so precedence rules can be tested without Android framework objects. */
 internal fun categoryForAppLabel(label: String, packageName: String): String {
+    val normalizedLabel = label.lowercase(Locale.ITALIAN)
     val s = (label + " " + packageName).lowercase(Locale.ITALIAN)
     fun hasAny(vararg terms: String) = terms.any { s.contains(it) }
+    fun labelHasAny(vararg terms: String) = terms.any { normalizedLabel.contains(it) }
     return when {
         hasAny("revolut", "bank", "banca", "wallet", "bitcoin", "crypto", "trading", "invest", "broker",
             "klarna", "paypal", "postepay", "intesa", "unicredit", "coinbase", "metamask", "bluewallet",
@@ -140,8 +142,9 @@ internal fun categoryForAppLabel(label: String, packageName: String): String {
         hasAny("meteo", "weather", "forecast", "accuweather", "meteoswiss", "ilmeteo", "windy", "yr.no") -> "Meteo"
         hasAny("nordvpn", "vpn", "bitwarden", "1password", "proton pass", "authenticator", "authy", "antivirus",
             "security", "sicurezza", "find my device", "life360", "family locator", "password manager") -> "Sicurezza"
-        hasAny("settings", "impostazioni", "android", "samsung", "system", "telefono", "phone", "contacts",
-            "contatti", "clock", "orologio", "galaxy", "smartthings", "bluetooth", "launcher", "home app") -> "Sistema"
+        labelHasAny("settings", "impostazioni", "android settings", "system", "telefono", "phone", "contacts",
+            "contatti", "clock", "orologio", "galaxy", "smartthings", "bluetooth", "launcher", "home app",
+            "samsung members") -> "Sistema"
         hasAny("file manager", "files", "file", "archivio", "utility", "utilities", "unit converter", "torcia",
             "flashlight", "qr code", "qr scanner", "timer", "recorder", "registratore", "voice recorder") -> "Utilità"
         else -> "Altro"
@@ -155,7 +158,7 @@ private fun categorySymbol(category: String): String = when (category) {
     "Browser" -> "◉"
     "Musica" -> "♫"
     "Video" -> "▷"
-    "Fotografia" -> "✧"
+    "Fotografia" -> "▧"
     "Produttività" -> "▤"
     "Shopping" -> "◇"
     "Viaggi" -> "⌖"
