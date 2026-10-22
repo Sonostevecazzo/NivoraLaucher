@@ -8,6 +8,20 @@ import org.junit.Test
 class OfflineGameLogicTest {
 
     @Test
+    fun appDrawerModeMigrationPreservesLegacyListPreference() {
+        assertEquals("Lista", normalizeAppDrawerMode(null, legacyGrid = false))
+        assertEquals("Griglia", normalizeAppDrawerMode(null, legacyGrid = true))
+        assertEquals("Lista", normalizeAppDrawerMode("Lista", legacyGrid = true))
+        assertEquals("Giostra", normalizeAppDrawerMode("Giostra", legacyGrid = true))
+    }
+
+    @Test
+    fun invalidAppDrawerModeFallsBackToLegacyLayout() {
+        assertEquals("Griglia", normalizeAppDrawerMode("Unknown", legacyGrid = true))
+        assertEquals("Lista", normalizeAppDrawerMode("Unknown", legacyGrid = false))
+    }
+
+    @Test
     fun appCategoriesPreferSpecificAppTypesOverGenericPackageNames() {
         assertEquals("Produttività", categoryForAppLabel("ChatGPT", "com.openai.chatgpt"))
         assertEquals("Musica", categoryForAppLabel("YouTube Music", "com.google.android.apps.youtube.music"))
