@@ -650,13 +650,27 @@ private fun NivoraApp() {
                 if (showAllApps || searchExpanded) Spacer(Modifier.height(12.dp))
 
                 if (showAllApps) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text("Tutte") })
                         FilterChip(selected = favoritesOnly, onClick = { favoritesOnly = true }, label = { Text("Preferite") })
                         Spacer(Modifier.weight(1f))
+                        var modeExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            TextButton(onClick = { modeExpanded = true }) { Text(appDrawerMode.uppercase(), fontSize = 9.sp, color = accent) }
+                            DropdownMenu(expanded = modeExpanded, onDismissRequest = { modeExpanded = false }) {
+                                listOf("Griglia", "Giostra", "Categorie").forEach { choice ->
+                                    DropdownMenuItem(text = { Text(choice) }, onClick = {
+                                        appDrawerMode = choice
+                                        grid = choice == "Griglia"
+                                        prefs.edit().putString("appDrawerMode", choice).putBoolean("grid", grid).apply()
+                                        modeExpanded = false
+                                    })
+                                }
+                            }
+                        }
                         var sortExpanded by remember { mutableStateOf(false) }
                         Box {
-                            TextButton(onClick = { sortExpanded = true }) { Text(sortBy.uppercase(), fontSize = 10.sp, color = accent) }
+                            TextButton(onClick = { sortExpanded = true }) { Text(sortBy.uppercase(), fontSize = 9.sp, color = accent) }
                             DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
                                 listOf("Nome", "Preferiti", "Recenti").forEach { choice ->
                                     DropdownMenuItem(text = { Text(choice) }, onClick = {
@@ -693,28 +707,12 @@ private fun NivoraApp() {
                             }
                         }
                     }
-                } else if (grid) {
+                } else if (appDrawerMode == "Griglia") {
                     LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
                         gridItems(visibleApps, key = { it.packageName }) { app ->
                             AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent, iconPackPackage,
-                                onClick = {
-                                    launchApp(context, app) { packageName ->
-                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
-                                    }
-                                },
-                                onLongClick = {
-                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                })
-                        }
-                    }
-                } else {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(app, favorites.contains(app.packageName), fg, muted, iconStyle, accent, iconPackPackage,
                                 onClick = { launchApp(context, app) { packageName ->
                                     recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
                                     prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
@@ -723,6 +721,63 @@ private fun NivoraApp() {
                                     favorites = toggleFavorite(favorites, app.packageName, prefs)
                                     Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
                                 })
+                        }
+                    }
+                } else if (appDrawerMode == "Giostra") {
+                    LazyRow(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 6.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        gridItems(visibleApps, key = { it.packageName }) { app ->
+                            Box(Modifier.width(92.dp).clip(RoundedCornerShape(20.dp))
+                                .background(panel.copy(alpha = 0.58f))
+                                .border(1.dp, accent.copy(alpha = 0.16f), RoundedCornerShape(20.dp)).padding(horizontal = 6.dp, vertical = 12.dp)) {
+                                AppTile(app, favorites.contains(app.packageName), true, fg, true, iconSize.coerceIn(44, 56), fontChoice, iconStyle, accent, iconPackPackage,
+                                    onClick = { launchApp(context, app) { packageName ->
+                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                    } },
+                                    onLongClick = {
+                                        favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                        Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                    })
+                            }
+                        }
+                    }
+                } else {
+                    val groupedApps = visibleApps.groupBy { categoryForApp(it) }
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        categoryOrder.forEach { category ->
+                            val categoryApps = groupedApps[category] ?: emptyList()
+                            if (categoryApps.isNotEmpty()) {
+                                item(key = "category-$category") {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(categorySymbol(category), color = accent, fontSize = 21.sp)
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(category, color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                                Text(categoryApps.size.toString() + " app", color = muted, fontSize = 10.sp)
+                                            }
+                                            Text("SCORRI  →", color = muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                                        }
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 4.dp)) {
+                                            gridItems(categoryApps, key = { it.packageName }) { app ->
+                                                Box(Modifier.width(84.dp).clip(RoundedCornerShape(16.dp))
+                                                    .background(panel.copy(alpha = 0.42f)).padding(horizontal = 5.dp, vertical = 10.dp)) {
+                                                    AppTile(app, favorites.contains(app.packageName), true, fg, true, 44, fontChoice, iconStyle, accent, iconPackPackage,
+                                                        onClick = { launchApp(context, app) { packageName ->
+                                                            recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                                            prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                                        } },
+                                                        onLongClick = {
+                                                            favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                                            Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                                        })
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
