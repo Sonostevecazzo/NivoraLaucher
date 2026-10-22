@@ -981,7 +981,7 @@ private fun NivoraApp() {
                                     }
                                     val iconPreviewApps = when (iconStyle) {
                                         "Nivora Flux", "Monocromatiche" -> apps.filter { NivoraIconDrawable.hasDesignedGlyph(it.label, it.packageName) }.take(4)
-                                        "Pacchetto esterno" -> apps.filter { IconPackSupport.loadIcon(context, iconPackPackage, it.packageName) != null }.take(4)
+                                        "Pacchetto esterno" -> apps.asSequence().filter { IconPackSupport.loadIcon(context, iconPackPackage, it.packageName) != null }.take(4).toList()
                                         else -> apps.take(4)
                                     }.ifEmpty { apps.take(4) }
                                     if (iconPreviewApps.isNotEmpty()) {
