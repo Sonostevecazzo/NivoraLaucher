@@ -4,6 +4,7 @@ import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,6 +90,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDateTime
@@ -96,19 +99,40 @@ import java.util.Locale
 import kotlin.random.Random
 import kotlin.math.abs
 
-private data class LaunchableApp(val label: String, val packageName: String, val icon: Drawable)
+private data class LaunchableApp(
+    val label: String,
+    val packageName: String,
+    val icon: Drawable,
+    val platformCategory: Int = ApplicationInfo.CATEGORY_UNDEFINED
+)
 
 private val appDrawerModes = listOf("Griglia", "Lista", "Giostra", "Categorie")
 
 internal fun normalizeAppDrawerMode(savedMode: String?, legacyGrid: Boolean): String =
     savedMode?.takeIf { it in appDrawerModes } ?: if (legacyGrid) "Griglia" else "Lista"
 private val categoryOrder = listOf(
-    "Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Fotografia",
+    "Finanza", "Giochi", "Social", "Browser", "Musica", "Video", "Notizie", "Fotografia",
     "Produttività", "Shopping", "Viaggi", "Salute", "Meteo", "Sicurezza",
     "Sistema", "Utilità", "Altro"
 )
 
-private fun categoryForApp(app: LaunchableApp): String = categoryForAppLabel(app.label, app.packageName)
+private fun categoryForApp(app: LaunchableApp): String {
+    val inferred = categoryForAppLabel(app.label, app.packageName)
+    if (inferred != "Altro") return inferred
+
+    // Android's installer category is useful for apps whose names do not reveal their purpose.
+    return when (app.platformCategory) {
+        ApplicationInfo.CATEGORY_GAME -> "Giochi"
+        ApplicationInfo.CATEGORY_AUDIO -> "Musica"
+        ApplicationInfo.CATEGORY_VIDEO -> "Video"
+        ApplicationInfo.CATEGORY_IMAGE -> "Fotografia"
+        ApplicationInfo.CATEGORY_SOCIAL -> "Social"
+        ApplicationInfo.CATEGORY_NEWS -> "Notizie"
+        ApplicationInfo.CATEGORY_MAPS -> "Viaggi"
+        ApplicationInfo.CATEGORY_PRODUCTIVITY -> "Produttività"
+        else -> "Altro"
+    }
+}
 
 /** Pure classifier so precedence rules can be tested without Android framework objects. */
 internal fun categoryForAppLabel(label: String, packageName: String): String {
@@ -121,7 +145,8 @@ internal fun categoryForAppLabel(label: String, packageName: String): String {
             "klarna", "paypal", "postepay", "intesa", "unicredit", "coinbase", "metamask", "bluewallet",
             "finance", "finanza", "trade republic", "satispay", "fineco", "wise", "n26", "hype") -> "Finanza"
         hasAny("playstation", "xbox", "steam", "epic games", "luna", "lemuroid", "arcade", "minecraft",
-            "roblox", "gaming", "game", "gioch", "clash", "supercell", "nintendo") -> "Giochi"
+            "roblox", "gaming", "game", "gioch", "clash", "supercell", "nintendo", "pubg", "garena",
+            "mihoyo", "hoyoverse", "king.com", "riotgames", "activision", "netmarble", "playrix", "ubisoft") -> "Giochi"
         hasAny("spotify", "youtube music", "deezer", "soundcloud", "tidal", "podcast", "musica", "music player",
             "amazon music", "apple music") -> "Musica"
         hasAny("chrome", "browser", "firefox", "brave", "opera", "microsoft edge", "comet", "internet",
@@ -136,14 +161,18 @@ internal fun categoryForAppLabel(label: String, packageName: String): String {
         hasAny("drive", "docs", "document", "office", "calendar", "calendario", "notes", "notion", "keep",
             "copilot", "chatgpt", "claude", "deepseek", "codespaces", "adobe", "scanner", "scan", "keyboard",
             "calculator app", "calculator", "calcolatrice", "dropbox", "google tasks", "todoist", "evernote",
-            "obsidian", "onenote", "libreoffice", "writer", "sheets", "excel", "word", "powerpoint") -> "Produttività"
+            "obsidian", "onenote", "libreoffice", "writer", "sheets", "excel", "word", "powerpoint", "todo",
+            "tasks", "mail", "gmail", "outlook", "email", "translator", "translate", "dictionary", "dizionario",
+            "ai assistant", "gemini", "perplexity", "microsoft 365", "onedrive", "pdf", "reader", "ebook") -> "Produttività"
         hasAny("amazon", "shopping", "shop", "ebay", "aliexpress", "deliveroo", "food", "mcdonald",
-            "keepa", "marketplace", "store", "retail", "zalando", "vinted", "shein", "temu", "ikea") -> "Shopping"
+            "keepa", "marketplace", "store", "retail", "zalando", "vinted", "shein", "temu", "ikea",
+            "glovo", "just eat", "ubereats", "uber eats", "too good to go", "essunga", "coop", "carrefour") -> "Shopping"
         hasAny("google maps", "maps", "mappe", "waze", "uber", "bolt", "booking", "airbnb", "trip", "travel",
             "viagg", "flight", "trenitalia", "trainline", "moovit", "citymapper", "blablacar", "my bmw") -> "Viaggi"
         hasAny("samsung health", "health connect", "health", "salute", "medical", "doctor", "doctolib", "fitness",
             "wellness", "workout", "gym", "pharmacy", "farmacia", "fitbit", "strava") -> "Salute"
         hasAny("meteo", "weather", "forecast", "accuweather", "meteoswiss", "ilmeteo", "windy", "yr.no") -> "Meteo"
+        hasAny("news", "notizie", "giornale", "newspaper", "corriere", "repubblica", "ansa", "bbc news", "cnn", "google news", "feedly", "flipboard", "inoreader") -> "Notizie"
         hasAny("nordvpn", "vpn", "bitwarden", "1password", "proton pass", "authenticator", "authy", "antivirus",
             "security", "sicurezza", "find my device", "life360", "family locator", "password manager") -> "Sicurezza"
         labelHasAny("settings", "impostazioni", "android settings", "system", "telefono", "phone", "contacts",
@@ -162,6 +191,7 @@ private fun categorySymbol(category: String): String = when (category) {
     "Browser" -> "◉"
     "Musica" -> "♫"
     "Video" -> "▷"
+    "Notizie" -> "▥"
     "Fotografia" -> "▧"
     "Produttività" -> "▤"
     "Shopping" -> "◇"
@@ -230,6 +260,7 @@ private fun NivoraApp() {
     var recentApps by remember { mutableStateOf(prefs.getString("recentApps", "")?.split("|")?.filter { it.isNotBlank() } ?: emptyList()) }
     var sortBy by remember { mutableStateOf((prefs.getString("sortBy", "Nome") ?: "Nome").let { if (it == "Name") "Nome" else it }) }
     var appDrawerMode by remember { mutableStateOf(normalizeAppDrawerMode(prefs.getString("appDrawerMode", null), prefs.getBoolean("grid", true))) }
+    var selectedDrawerCategory by remember { mutableStateOf("Tutte") }
     var apps by remember { mutableStateOf<List<LaunchableApp>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var clock by remember { mutableStateOf(LocalDateTime.now()) }
@@ -442,7 +473,8 @@ private fun NivoraApp() {
                 LaunchableApp(
                     label = info.loadLabel(pm).toString(),
                     packageName = activityInfo.packageName,
-                    icon = info.loadIcon(pm)
+                    icon = info.loadIcon(pm),
+                    platformCategory = if (android.os.Build.VERSION.SDK_INT >= 26) activityInfo.applicationInfo.category else ApplicationInfo.CATEGORY_UNDEFINED
                 )
             } catch (_: Exception) { null }
         }.distinctBy { it.packageName }.sortedBy { it.label.lowercase(Locale.ROOT) }
@@ -660,6 +692,42 @@ private fun NivoraApp() {
                         Spacer(Modifier.weight(1f))
                         Text("${favorites.size} SALVATE", color = muted, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
+                    val homeCategoryGroups = apps.groupBy { categoryForApp(it) }
+                    val homeCategories = categoryOrder.filter { !homeCategoryGroups[it].isNullOrEmpty() }
+                    if (homeCategories.isNotEmpty()) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(end = 4.dp)
+                        ) {
+                            items(homeCategories, key = { it }) { category ->
+                                val count = homeCategoryGroups[category]?.size ?: 0
+                                Row(
+                                    Modifier.widthIn(min = 112.dp).clip(RoundedCornerShape(16.dp))
+                                        .background(panel.copy(alpha = 0.62f))
+                                        .border(1.dp, accent.copy(alpha = 0.22f), RoundedCornerShape(16.dp))
+                                        .clickable {
+                                            selectedDrawerCategory = category
+                                            showAllApps = true
+                                            query = ""
+                                            favoritesOnly = false
+                                            appDrawerMode = "Categorie"
+                                            grid = false
+                                            prefs.edit().putString("appDrawerMode", "Categorie").putBoolean("grid", false).apply()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                                ) {
+                                    Text(categorySymbol(category), color = accent, fontSize = 21.sp)
+                                    Column {
+                                        Text(categoryDisplayName(category), color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                        Text("$count app", color = muted, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     Row(Modifier.padding(top = 20.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("APPLICAZIONI", color = fg, fontSize = 22.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Light)
@@ -678,7 +746,7 @@ private fun NivoraApp() {
                   Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Search, contentDescription = null, tint = muted, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    BasicTextField(value = query, onValueChange = { query = it; if (it.isNotBlank()) { showAllApps = true; favoritesOnly = false } },
+                    BasicTextField(value = query, onValueChange = { query = it; selectedDrawerCategory = "Tutte"; if (it.isNotBlank()) { showAllApps = true; favoritesOnly = false } },
                         singleLine = true, textStyle = TextStyle(color = fg, fontSize = 15.sp),
                         cursorBrush = SolidColor(accent), modifier = Modifier.weight(1f),
                         decorationBox = { inner ->
@@ -750,19 +818,34 @@ private fun NivoraApp() {
                         }
                     }
                 } else if (appDrawerMode == "Griglia") {
-                    LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)) {
-                        gridItems(visibleApps, key = { it.packageName }) { app ->
-                            AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent, iconPackPackage,
-                                onClick = { launchApp(context, app) { packageName ->
-                                    recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                    prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
-                                } },
-                                onLongClick = {
-                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                })
+                    val gridState = rememberLazyGridState()
+                    val gridScope = rememberCoroutineScope()
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        LazyVerticalGrid(
+                            state = gridState,
+                            columns = GridCells.Fixed(columns),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)
+                        ) {
+                            gridItems(visibleApps, key = { it.packageName }) { app ->
+                                AppTile(app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize, fontChoice, iconStyle, accent, iconPackPackage,
+                                    onClick = { launchApp(context, app) { packageName ->
+                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                    } },
+                                    onLongClick = {
+                                        favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                        Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
+                                    })
+                            }
+                        }
+                        if (showAllApps && sortBy == "Nome" && visibleApps.size > 4) {
+                            AlphabetRail(visibleApps, muted, accent) { letter ->
+                                val index = visibleApps.indexOfFirst { appAlphabetLetter(it.label).toString() == letter }
+                                if (index >= 0) gridScope.launch { gridState.animateScrollToItem(index) }
+                            }
                         }
                     }
                 } else if (appDrawerMode == "Giostra") {
@@ -913,58 +996,103 @@ private fun NivoraApp() {
                     }
                 } else if (appDrawerMode == "Categorie") {
                     val groupedApps = visibleApps.groupBy { categoryForApp(it) }
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        categoryOrder.forEach { category ->
-                            val categoryApps = groupedApps[category] ?: emptyList()
-                            if (categoryApps.isNotEmpty()) {
-                                item(key = "category-$category") {
-                                    Column(Modifier.fillMaxWidth()) {
-                                        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text(categorySymbol(category), color = accent, fontSize = 21.sp)
-                                            Spacer(Modifier.width(10.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Text(category, color = fg, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                                                Text(categoryApps.size.toString() + " app", color = muted, fontSize = 10.sp)
+                    val availableCategories = categoryOrder.filter { !groupedApps[it].isNullOrEmpty() }
+                    val activeCategory = selectedDrawerCategory.takeIf { it == "Tutte" || it in availableCategories } ?: "Tutte"
+                    val categoryVisibleApps = if (activeCategory == "Tutte") visibleApps else groupedApps[activeCategory].orEmpty()
+                    val categoryGridState = rememberLazyGridState()
+                    val categoryScope = rememberCoroutineScope()
+                    LaunchedEffect(activeCategory, categoryVisibleApps.size) {
+                        categoryGridState.scrollToItem(0)
+                    }
+                    Column(Modifier.weight(1f).fillMaxWidth()) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            contentPadding = PaddingValues(end = 8.dp)
+                        ) {
+                            item(key = "category-all") {
+                                FilterChip(
+                                    selected = activeCategory == "Tutte",
+                                    onClick = { selectedDrawerCategory = "Tutte" },
+                                    label = { Text("Tutte") }
+                                )
+                            }
+                            items(availableCategories, key = { it }) { category ->
+                                FilterChip(
+                                    selected = activeCategory == category,
+                                    onClick = { selectedDrawerCategory = category },
+                                    label = { Text("${categoryDisplayName(category)} · ${groupedApps[category]?.size ?: 0}") }
+                                )
+                            }
+                        }
+                        Row(Modifier.weight(1f).fillMaxWidth()) {
+                            if (categoryVisibleApps.isEmpty()) {
+                                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                                    Text("Nessuna app in questa categoria.", color = muted, fontSize = 13.sp)
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    state = categoryGridState,
+                                    columns = GridCells.Fixed(columns),
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 20.dp)
+                                ) {
+                                    gridItems(categoryVisibleApps, key = { it.packageName }) { app ->
+                                        AppTile(
+                                            app, favorites.contains(app.packageName), showLabels, fg, compact, iconSize,
+                                            fontChoice, iconStyle, accent, iconPackPackage,
+                                            onClick = { launchApp(context, app) { packageName ->
+                                                recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                                prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                            } },
+                                            onLongClick = {
+                                                favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                                Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
                                             }
-                                            Text("SCORRI  →", color = muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                                        }
-                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 4.dp)) {
-                                            items(categoryApps, key = { it.packageName }) { app ->
-                                                Box(Modifier.width(84.dp).clip(RoundedCornerShape(16.dp))
-                                                    .background(panel.copy(alpha = 0.42f)).padding(horizontal = 5.dp, vertical = 10.dp)) {
-                                                    AppTile(app, favorites.contains(app.packageName), true, fg, true, 44, fontChoice, iconStyle, accent, iconPackPackage,
-                                                        onClick = { launchApp(context, app) { packageName ->
-                                                            recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                                            prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
-                                                        } },
-                                                        onLongClick = {
-                                                            favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                                            Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                                        })
-                                                }
-                                            }
-                                        }
+                                        )
                                     }
+                                }
+                            }
+                            if (showAllApps && sortBy == "Nome" && categoryVisibleApps.size > 4) {
+                                AlphabetRail(categoryVisibleApps, muted, accent) { letter ->
+                                    val index = categoryVisibleApps.indexOfFirst { appAlphabetLetter(it.label).toString() == letter }
+                                    if (index >= 0) categoryScope.launch { categoryGridState.animateScrollToItem(index) }
                                 }
                             }
                         }
                     }
                 } else {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        items(visibleApps, key = { it.packageName }) { app ->
-                            AppListRow(
-                                app, favorites.contains(app.packageName), fg, muted, iconStyle, accent, iconPackPackage,
-                                onClick = {
-                                    launchApp(context, app) { packageName ->
-                                        recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
-                                        prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                    val listState = rememberLazyListState()
+                    val listScope = rememberCoroutineScope()
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                            contentPadding = PaddingValues(bottom = 16.dp)
+                        ) {
+                            items(visibleApps, key = { it.packageName }) { app ->
+                                AppListRow(
+                                    app, favorites.contains(app.packageName), fg, muted, iconStyle, accent, iconPackPackage,
+                                    onClick = {
+                                        launchApp(context, app) { packageName ->
+                                            recentApps = (listOf(packageName) + recentApps.filterNot { it == packageName }).take(30)
+                                            prefs.edit().putString("recentApps", recentApps.joinToString("|")).apply()
+                                        }
+                                    },
+                                    onLongClick = {
+                                        favorites = toggleFavorite(favorites, app.packageName, prefs)
+                                        Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
                                     }
-                                },
-                                onLongClick = {
-                                    favorites = toggleFavorite(favorites, app.packageName, prefs)
-                                    Toast.makeText(context, if (favorites.contains(app.packageName)) "Preferito aggiunto" else "Preferito rimosso", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                                )
+                            }
+                        }
+                        if (showAllApps && sortBy == "Nome" && visibleApps.size > 4) {
+                            AlphabetRail(visibleApps, muted, accent) { letter ->
+                                val index = visibleApps.indexOfFirst { appAlphabetLetter(it.label).toString() == letter }
+                                if (index >= 0) listScope.launch { listState.animateScrollToItem(index) }
+                            }
                         }
                     }
                 }
@@ -2127,6 +2255,44 @@ private fun AppTile(app: LaunchableApp, favorite: Boolean, showLabel: Boolean, f
             Spacer(Modifier.height(7.dp))
             Text(app.label, color = fg, fontSize = if (compact) 9.sp else 10.sp, maxLines = 2, softWrap = true, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = 12.sp,
                 letterSpacing = if (fontChoice == "iOS Style") (-0.15).sp else 0.sp, fontWeight = if (fontChoice == "iOS Style") FontWeight.Medium else FontWeight.Normal)
+        }
+    }
+}
+
+private fun appAlphabetLetter(label: String): Char {
+    val first = label.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar() ?: '#'
+    return if (first in 'A'..'Z') first else '#'
+}
+
+private fun categoryDisplayName(category: String): String = if (category == "Altro") "Altre app" else category
+
+@Composable
+private fun AlphabetRail(
+    apps: List<LaunchableApp>,
+    muted: Color,
+    accent: Color,
+    onLetterClick: (String) -> Unit
+) {
+    val letters = remember(apps) {
+        apps.map { appAlphabetLetter(it.label) }.distinct().sortedWith(
+            compareBy<Char> { if (it == '#') 1 else 0 }.thenBy { it }
+        )
+    }
+    if (letters.isNotEmpty()) {
+        Column(
+            Modifier.width(23.dp).fillMaxHeight().padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.SpaceEvenly
+        ) {
+            letters.forEach { letter ->
+                Box(
+                    Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .clickable { onLetterClick(letter.toString()) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(letter.toString(), color = accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center, maxLines = 1)
+                }
+            }
         }
     }
 }
