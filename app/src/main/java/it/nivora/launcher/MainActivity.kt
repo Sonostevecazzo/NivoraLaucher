@@ -133,7 +133,7 @@ private fun NivoraApp() {
             .let { saved -> if (saved in availableThemes) saved else "Mono Glass" })
     }
     var iconStyle by remember {
-        mutableStateOf((prefs.getString("iconStyle", "Originali") ?: "Originali")
+        mutableStateOf((prefs.getString("iconStyle", "Nivora Flux") ?: "Nivora Flux")
             .let { if (it in setOf("Originali", "Nivora Flux", "Monocromatiche")) it else "Originali" })
     }
     var monochromeIcons by remember { mutableStateOf(iconStyle == "Monocromatiche") }
@@ -939,7 +939,7 @@ private fun NivoraApp() {
                                 }
                             }
                             "Icone e applicazioni" -> {
-                                SettingsSection("Icone e applicazioni", "Personalizza l'aspetto e la disposizione del cassetto app.", accent) {
+                                SettingsSection("Icone e applicazioni", "Scegli il look delle icone: ufficiali, Prism Flux al neon oppure monocromatiche.", accent) {
                                     SettingChoice("Stile delle icone", iconStyle, "Originali", "Nivora Flux", "Monocromatiche") {
                                         iconStyle = it
                                         monochromeIcons = it == "Monocromatiche"
@@ -1181,7 +1181,7 @@ private fun NivoraApp() {
                     searchExpanded = false
                     themePreset = "Mono Glass"
                     monochromeIcons = false
-                    iconStyle = "Originali"
+                    iconStyle = "Nivora Flux"
                     customWallpaperUri = null
                     customWallpaperBitmap = null
                     homeWidgetIds = emptyList()
