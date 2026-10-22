@@ -830,33 +830,49 @@ private fun NivoraApp() {
                             }
                             "Sfondi" -> {
                                 val choices = listOf("OLED", "Graphite", "Warm", "Paper", "Gradient", "Sunset", "Aurora", "Nebula", "Orbit", "Mesh", "Dunes", "Ocean", "Forest")
-                                SettingsSection("Sfondi integrati", "Scegli una superficie disegnata per Nivora oppure aggiungi una tua foto.", accent) {
+                                SettingsSection("Anteprima dello sfondo", "Tocca una miniatura per vedere subito come apparirà la Home. La selezione si applica immediatamente.", accent) {
+                                    Box(
+                                        Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(24.dp))
+                                            .border(1.dp, accent.copy(alpha = 0.45f), RoundedCornerShape(24.dp))
+                                    ) {
+                                        WallpaperPreview(
+                                            name = wallpaper,
+                                            accent = accent,
+                                            dark = dark,
+                                            customBitmap = customWallpaperBitmap,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        Box(
+                                            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(12.dp)
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(Color.Black.copy(alpha = 0.42f)).padding(12.dp)
+                                        ) {
+                                            Text(
+                                                if (customWallpaperBitmap != null) "Foto personale · anteprima Home" else "$wallpaper · anteprima Home",
+                                                color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("SFONDI DISPONIBILI", color = muted, fontSize = 10.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
                                     choices.chunked(2).forEach { rowChoices ->
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                             rowChoices.forEach { name ->
-                                                val preview = when (name) {
-                                                    "Aurora" -> Brush.linearGradient(listOf(Color(0xFF102A43), Color(0xFF246B78), Color(0xFF8D6A92)))
-                                                    "Nebula" -> Brush.linearGradient(listOf(Color(0xFF1B1742), Color(0xFF662D68), Color(0xFF121827)))
-                                                    "Orbit" -> Brush.linearGradient(listOf(Color(0xFF09131F), Color(0xFF27465D)))
-                                                    "Mesh" -> Brush.linearGradient(listOf(Color(0xFF1D2634), Color(0xFF40536A)))
-                                                    "Dunes" -> Brush.linearGradient(listOf(Color(0xFF3B2828), Color(0xFFC28C69)))
-                                                    "Ocean" -> Brush.linearGradient(listOf(Color(0xFF062E43), Color(0xFF1D8191)))
-                                                    "Forest" -> Brush.linearGradient(listOf(Color(0xFF0B221E), Color(0xFF476F50)))
-                                                    "Sunset" -> Brush.linearGradient(listOf(Color(0xFF4B253F), Color(0xFFE5A16C)))
-                                                    "Gradient" -> Brush.linearGradient(listOf(Color(0xFF242833), Color(0xFF090A0A)))
-                                                    "Warm" -> Brush.linearGradient(listOf(Color(0xFF2A211E), Color(0xFF6D4D40)))
-                                                    "Paper" -> Brush.linearGradient(listOf(Color(0xFFF7F7F2), Color(0xFFD8D8D1)))
-                                                    "Graphite" -> Brush.linearGradient(listOf(Color(0xFF202326), Color(0xFF42484C)))
-                                                    else -> Brush.linearGradient(listOf(Color(0xFF101214), Color(0xFF050607)))
-                                                }
-                                                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable {
-                                                    wallpaper = name
-                                                    customWallpaperUri = null
-                                                    customWallpaperBitmap = null
-                                                    prefs.edit().putString("wallpaper", name).remove("customWallpaperUri").apply()
-                                                }.border(1.dp, if (wallpaper == name && customWallpaperUri == null) accent else muted.copy(alpha = 0.18f), RoundedCornerShape(14.dp)).padding(7.dp)) {
-                                                    Box(Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(10.dp)).background(preview), contentAlignment = Alignment.TopEnd) {
-                                                        if (wallpaper == name && customWallpaperUri == null) Text("✓", color = Color.White, modifier = Modifier.padding(6.dp), fontSize = 16.sp)
+                                                Column(
+                                                    Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable {
+                                                        wallpaper = name
+                                                        customWallpaperUri = null
+                                                        customWallpaperBitmap = null
+                                                        prefs.edit().putString("wallpaper", name).remove("customWallpaperUri").apply()
+                                                    }.border(1.dp, if (wallpaper == name && customWallpaperUri == null) accent else muted.copy(alpha = 0.18f), RoundedCornerShape(14.dp)).padding(6.dp)
+                                                ) {
+                                                    Box(Modifier.fillMaxWidth().height(92.dp).clip(RoundedCornerShape(10.dp))) {
+                                                        WallpaperPreview(name, accent, dark, null, Modifier.fillMaxSize())
+                                                        if (wallpaper == name && customWallpaperUri == null) {
+                                                            Box(Modifier.align(Alignment.TopEnd).padding(5.dp).size(22.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                                                                Text("✓", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
                                                     }
                                                     Text(name, color = fg, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp, start = 3.dp, bottom = 3.dp), maxLines = 1)
                                                 }
@@ -1177,6 +1193,78 @@ private fun decodeSampledWallpaper(context: android.content.Context, uri: Uri, m
         val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
         context.contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream, null, options) }
     }.getOrNull()
+
+@Composable
+private fun WallpaperPreview(
+    name: String,
+    accent: Color,
+    dark: Boolean,
+    customBitmap: Bitmap?,
+    modifier: Modifier = Modifier
+) {
+    val backdrop = when (name) {
+        "OLED" -> Brush.verticalGradient(listOf(Color(0xFF050607), Color(0xFF101214)))
+        "Graphite" -> Brush.verticalGradient(listOf(Color(0xFF202326), Color(0xFF42484C)))
+        "Warm" -> Brush.verticalGradient(listOf(Color(0xFF2A211E), Color(0xFF6D4D40)))
+        "Paper" -> Brush.verticalGradient(listOf(Color(0xFFF7F7F2), Color(0xFFD8D8D1)))
+        "Gradient" -> Brush.linearGradient(listOf(Color(0xFF242833), Color(0xFF090A0A)))
+        "Sunset" -> Brush.verticalGradient(listOf(Color(0xFF4B253F), Color(0xFFE5A16C)))
+        "Aurora" -> Brush.linearGradient(listOf(Color(0xFF102A43), Color(0xFF246B78), Color(0xFF8D6A92)))
+        "Nebula" -> Brush.linearGradient(listOf(Color(0xFF1B1742), Color(0xFF662D68), Color(0xFF121827)))
+        "Orbit" -> Brush.linearGradient(listOf(Color(0xFF09131F), Color(0xFF27465D)))
+        "Mesh" -> Brush.linearGradient(listOf(Color(0xFF1D2634), Color(0xFF40536A)))
+        "Dunes" -> Brush.linearGradient(listOf(Color(0xFF3B2828), Color(0xFFC28C69)))
+        "Ocean" -> Brush.linearGradient(listOf(Color(0xFF062E43), Color(0xFF1D8191)))
+        "Forest" -> Brush.linearGradient(listOf(Color(0xFF0B221E), Color(0xFF476F50)))
+        else -> Brush.verticalGradient(listOf(Color(0xFF101214), Color(0xFF050607)))
+    }
+    val ink = if (name == "Paper") Color(0xFF202326) else Color.White
+    Box(modifier.background(backdrop)) {
+        if (customBitmap != null) {
+            Image(bitmap = customBitmap.asImageBitmap(), contentDescription = "Anteprima dello sfondo personale", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.20f)))
+        } else if (name in setOf("Aurora", "Nebula", "Orbit", "Mesh", "Dunes", "Ocean", "Forest")) {
+            DecorativeWallpaper(name, accent, dark = true, modifier = Modifier.fillMaxSize())
+        }
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("9:41", color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("mer 21 ott", color = ink.copy(alpha = 0.78f), fontSize = 10.sp)
+                }
+                Spacer(Modifier.weight(1f))
+                Text("●  ▮▮  ▰", color = ink.copy(alpha = 0.86f), fontSize = 10.sp)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Buonasera", color = ink.copy(alpha = 0.88f), fontSize = 11.sp)
+                Text("La tua Home,\na modo tuo", color = ink, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Light)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    listOf("C", "✦", "◉", "♫").forEachIndexed { index, symbol ->
+                        Box(
+                            Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(14.dp))
+                                .background(if (name == "Paper") Color.White.copy(alpha = 0.56f) else Color.White.copy(alpha = 0.14f))
+                                .border(1.dp, ink.copy(alpha = 0.20f), RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(symbol, color = if (index == 1) accent else ink, fontSize = 19.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+            Box(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                    .background(if (name == "Paper") Color.White.copy(alpha = 0.48f) else Color.Black.copy(alpha = 0.22f))
+                    .padding(horizontal = 16.dp, vertical = 11.dp)
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("⌕  Cerca un'app", color = ink.copy(alpha = 0.86f), fontSize = 11.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text("•••", color = ink.copy(alpha = 0.9f), fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun DecorativeWallpaper(name: String, accent: Color, dark: Boolean, modifier: Modifier = Modifier) {
